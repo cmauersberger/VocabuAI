@@ -1,0 +1,28 @@
+{
+  "name": "vocabuai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VocabuAI - A vocabulary learning application",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "backend": "npm run dev --workspace=vocabuai-backend",
+    "frontend": "npm run start --workspace=vocabuai-frontend",
+    "dev:backend": "npm run dev --workspace=vocabuai-backend",
+    "dev:frontend": "npm run start --workspace=vocabuai-frontend",
+    "build:backend": "npm run build --workspace=vocabuai-backend",
+    "build:frontend": "npm run build --workspace=vocabuai-frontend",
+    "install:all": "npm install"
+  },
+  "keywords": [
+    "vocabulary",
+    "learning",
+    "ai",
+    "monorepo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {}
+}
