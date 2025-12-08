@@ -22,7 +22,7 @@
     "ai",
     "monorepo"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "cmauersberger",
+  "license": "GPL-3.0",
   "devDependencies": {}
 }
