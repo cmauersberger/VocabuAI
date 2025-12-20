@@ -1,0 +1,27 @@
+# Backend
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.nupkg
+
+# Frontend
+**/node_modules/
+**/.expo/
+**/.expo-shared/
+**/dist/
+**/web-build/
+**/.parcel-cache/
+**/.cache/
+
+# Logs
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
