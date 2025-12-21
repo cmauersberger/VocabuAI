@@ -1,5 +1,6 @@
 import React from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type TabKey = "home" | "edit" | "learn" | "settings";
 
@@ -24,8 +25,10 @@ export default function Layout({
   onNavigate,
   children
 }: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <View style={styles.root}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{title}</Text>
@@ -33,7 +36,10 @@ export default function Layout({
 
         <View style={styles.content}>{children}</View>
 
-        <View style={styles.bottomNav}>
+        <View
+          style={[styles.bottomNav, { paddingBottom: insets.bottom }]}
+          pointerEvents="auto"
+        >
           {tabs.map((tab) => {
             const isActive = tab.key === activeTab;
             return (
@@ -89,7 +95,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: "rgba(148, 163, 184, 0.25)",
-    backgroundColor: "#0B1220"
+    backgroundColor: "#0B1220",
+    paddingTop: 6,
+    zIndex: 10,
+    elevation: 10
   },
   navItem: {
     flex: 1,
@@ -113,4 +122,3 @@ const styles = StyleSheet.create({
     color: "#C7D2FE"
   }
 });
-

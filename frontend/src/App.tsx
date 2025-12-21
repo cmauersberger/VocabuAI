@@ -1,5 +1,6 @@
 import React from "react";
 import { Platform } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import Layout, { TabItem, TabKey } from "./components/Layout";
 import EditPage from "./pages/Edit/EditPage";
 import HomePage from "./pages/Home/HomePage";
@@ -35,13 +36,15 @@ export default function App() {
   };
 
   return (
-    <Layout
-      title={titleByTab[activeTab]}
-      activeTab={activeTab}
-      tabs={tabs}
-      onNavigate={setActiveTab}
-    >
-      {pageByTab[activeTab]}
-    </Layout>
+    <SafeAreaProvider>
+      <Layout
+        title={titleByTab[activeTab]}
+        activeTab={activeTab}
+        tabs={tabs}
+        onNavigate={setActiveTab}
+      >
+        {pageByTab[activeTab]}
+      </Layout>
+    </SafeAreaProvider>
   );
 }
