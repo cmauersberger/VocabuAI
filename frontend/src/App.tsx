@@ -1,10 +1,10 @@
 import React from "react";
 import { Platform } from "react-native";
 import Layout, { TabItem, TabKey } from "./components/Layout";
-import EditPage from "./pages/EditPage";
-import HomePage from "./pages/HomePage";
-import LearnPage from "./pages/LearnPage";
-import SettingsPage from "./pages/SettingsPage";
+import EditPage from "./pages/Edit/EditPage";
+import HomePage from "./pages/Home/HomePage";
+import LearnPage from "./pages/Learn/LearnPage";
+import SettingsPage from "./pages/Settings/SettingsPage";
 
 if (Platform.OS === "web") {
   require("./styles/global.css");

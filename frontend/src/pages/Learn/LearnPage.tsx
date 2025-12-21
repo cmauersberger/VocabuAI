@@ -1,12 +1,12 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-export default function SettingsPage() {
+export default function LearnPage() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>App preferences and account settings.</Text>
+      <Text style={styles.text}>Study mode goes here.</Text>
       <Text style={styles.muted}>
-        Placeholder: theme, language, and data sync options.
+        Placeholder: spaced repetition session, quizzes, and progress.
       </Text>
     </View>
   );
@@ -27,4 +27,3 @@ const styles = StyleSheet.create({
     color: "#94A3B8"
   }
 });
-

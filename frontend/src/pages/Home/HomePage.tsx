@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Button from "../components/Button";
-import { logger } from "../infrastructure/logger";
+import Button from "../../components/Button";
+import { logger } from "../../infrastructure/logger";
 
 export default function HomePage() {
   const handlePress = () => {
