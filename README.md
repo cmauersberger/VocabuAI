@@ -69,6 +69,31 @@ cd frontend
 npm run android
 ```
 
+### Test on an Android phone (Expo Go)
+
+Prereqs (one-time):
+
+- Install Expo Go from the Play Store
+- Put your phone and dev machine on the same Wi‑Fi network
+
+Run:
+
+```bash
+cd frontend
+npm run start
+```
+
+Then:
+
+- Open Expo Go on your phone → “Scan QR code” → scan the QR code shown by Expo
+- If the phone can’t connect over LAN, switch Expo “Connection” to `Tunnel` (Expo UI) and scan again
+- If you see an SDK mismatch warning in Expo Go, align the project `expo` SDK version in `frontend/package.json` to match
+
+Networking notes:
+
+- Windows Firewall/VPN can block LAN discovery; allow Node/Expo on private networks or use `Tunnel`
+- When calling the backend from a real phone later, don’t use `localhost` for the API base URL; use your PC’s LAN IP (e.g. `http://192.168.1.20:5080`)
+
 ## Concept docs
 
 - `concept/app-concept.md`
