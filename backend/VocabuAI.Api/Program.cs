@@ -109,13 +109,9 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
-    .AllowAnonymous()
-    .WithName("Health");
-
+app.MapHealthEndpoints(app.Environment.ApplicationName);
 app.MapAuthEndpoints();
 app.MapMemoEndpoints();
 app.MapLlmEndpoints();
 
 app.Run();
-
