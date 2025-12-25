@@ -4,12 +4,19 @@ import Button from "../../components/Button";
 
 type Props = {
   email: string | null;
+  userName: string | null;
   issuedAt?: number;
   expiresAt?: number;
   onLogout: () => void;
 };
 
-export default function SettingsPage({ email, issuedAt, expiresAt, onLogout }: Props) {
+export default function SettingsPage({
+  email,
+  userName,
+  issuedAt,
+  expiresAt,
+  onLogout
+}: Props) {
   const formatDate = (value?: number) =>
     value ? new Date(value).toLocaleString() : "Unknown";
 
@@ -32,6 +39,7 @@ export default function SettingsPage({ email, issuedAt, expiresAt, onLogout }: P
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Signed in</Text>
         <Text style={styles.text}>Email: {email ?? "Unknown"}</Text>
+        <Text style={styles.text}>User name: {userName ?? "Unknown"}</Text>
         <Text style={styles.muted}>Issued: {formatDate(issuedAt)}</Text>
         <Text style={styles.muted}>Expires: {formatDate(expiresAt)}</Text>
         {timeRemaining() ? (

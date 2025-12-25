@@ -2,6 +2,7 @@ type JwtPayload = {
   exp?: number;
   iat?: number;
   email?: string;
+  name?: string;
 };
 
 const decodeBase64 = (value: string): string | null => {

@@ -10,6 +10,7 @@ type Props = {
 type AuthResult = {
   token: string;
   email: string;
+  userName: string;
   issuedAt?: number;
   expiresAt?: number;
 };
@@ -23,10 +24,14 @@ export default function AuthPage({ onAuthenticated }: Props) {
 
   const [mode, setMode] = React.useState<"login" | "signup">("login");
   const [email, setEmail] = React.useState("");
+  const [userName, setUserName] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [status, setStatus] = React.useState<Status | null>(null);
 
   const normalizeEmail = (value: string) => value.trim().toLowerCase();
+  const normalizeUserName = (value: string) => value.trim();
+  const isValidUserName = (value: string) =>
+    value.replace(/ /g, "").length >= 3;
 
   const handleLogin = async () => {
     const normalizedEmail = normalizeEmail(email);
@@ -55,9 +60,16 @@ export default function AuthPage({ onAuthenticated }: Props) {
       const issuedAt = claims?.iat ? claims.iat * 1000 : undefined;
       const expiresAt = claims?.exp ? claims.exp * 1000 : undefined;
       const claimEmail = claims?.email ?? normalizedEmail;
+      const claimUserName = claims?.name ?? normalizedEmail;
 
       setStatus({ text: "Login successful.", tone: "success" });
-      onAuthenticated({ token, email: claimEmail, issuedAt, expiresAt });
+      onAuthenticated({
+        token,
+        email: claimEmail,
+        userName: claimUserName,
+        issuedAt,
+        expiresAt
+      });
     } catch (error) {
       setStatus({ text: "Unable to reach the API.", tone: "error" });
     }
@@ -65,8 +77,16 @@ export default function AuthPage({ onAuthenticated }: Props) {
 
   const handleSignup = async () => {
     const normalizedEmail = normalizeEmail(email);
+    const normalizedUserName = normalizeUserName(userName);
     if (!normalizedEmail || !password) {
       setStatus({ text: "Email and password are required.", tone: "error" });
+      return;
+    }
+    if (!isValidUserName(normalizedUserName)) {
+      setStatus({
+        text: "User name must be at least 3 characters (excluding spaces).",
+        tone: "error"
+      });
       return;
     }
 
@@ -76,7 +96,11 @@ export default function AuthPage({ onAuthenticated }: Props) {
       const response = await fetch(`${apiBaseUrl}/api/users/CreateUser`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: normalizedEmail, password })
+        body: JSON.stringify({
+          email: normalizedEmail,
+          userName: normalizedUserName,
+          password
+        })
       });
 
       if (!response.ok) {
@@ -103,6 +127,16 @@ export default function AuthPage({ onAuthenticated }: Props) {
       </Text>
 
       <View style={styles.card}>
+        {mode === "signup" ? (
+          <TextInput
+            value={userName}
+            onChangeText={setUserName}
+            placeholder="User name"
+            placeholderTextColor="#64748B"
+            style={styles.input}
+            autoCapitalize="words"
+          />
+        ) : null}
         <TextInput
           value={email}
           onChangeText={setEmail}

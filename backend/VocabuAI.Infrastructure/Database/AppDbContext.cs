@@ -33,6 +33,7 @@ public sealed class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.Email).IsRequired();
+            entity.Property(e => e.UserName).IsRequired();
             entity.Property(e => e.HashedPassword).IsRequired();
             entity.Property(e => e.DateTimeCreated).IsRequired();
             entity.Property(e => e.DateTimeUpdated).IsRequired();

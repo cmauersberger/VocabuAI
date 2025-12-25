@@ -3,14 +3,20 @@ import { StyleSheet, Text, View } from "react-native";
 import Button from "../../components/Button";
 import { logger } from "../../infrastructure/logger";
 
-export default function HomePage() {
+type Props = {
+  userName: string | null;
+};
+
+export default function HomePage({ userName }: Props) {
   const handlePress = () => {
     logger.info("Button pressed (placeholder action).");
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.subtitle}>Welcome to the Arabic Memo App</Text>
+      <Text style={styles.subtitle}>
+        Welcome{userName ? `, ${userName}` : ""} to the Arabic Memo App
+      </Text>
       <View style={styles.spacer} />
       <Button label="Do Something" onClick={handlePress} />
     </View>

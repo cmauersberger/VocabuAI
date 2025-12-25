@@ -17,6 +17,7 @@ export default function App() {
   const [auth, setAuth] = React.useState<AuthState>({
     token: null,
     email: null,
+    userName: null,
     issuedAt: undefined,
     expiresAt: undefined
   });
@@ -41,17 +42,24 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setAuth({ token: null, email: null, issuedAt: undefined, expiresAt: undefined });
+    setAuth({
+      token: null,
+      email: null,
+      userName: null,
+      issuedAt: undefined,
+      expiresAt: undefined
+    });
     setActiveTab("home");
   };
 
   const pageByTab: Record<TabKey, React.ReactNode> = {
-    home: <HomePage />,
+    home: <HomePage userName={auth.userName} />,
     edit: <EditPage />,
     learn: <LearnPage />,
     settings: (
       <SettingsPage
         email={auth.email}
+        userName={auth.userName}
         issuedAt={auth.issuedAt}
         expiresAt={auth.expiresAt}
         onLogout={handleLogout}
@@ -80,6 +88,7 @@ export default function App() {
 type AuthState = {
   token: string | null;
   email: string | null;
+  userName: string | null;
   issuedAt?: number;
   expiresAt?: number;
 };
