@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using VocabuAI.Api.Domain;
-using VocabuAI.Api.Infrastructure;
+using VocabuAI.Application.Memos;
 
 namespace VocabuAI.Api.Endpoints;
 
@@ -8,12 +7,12 @@ public static class MemoEndpoints
 {
     public static void MapMemoEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/memos", (InMemoryMemoStore store) => Results.Ok(store.List()))
+        app.MapGet("/api/memos", (IMemoStore store) => Results.Ok(store.List()))
             .RequireAuthorization()
             .WithTags("Memos")
             .WithName("ListMemos");
 
-        app.MapGet("/api/memos/{id:guid}", (Guid id, InMemoryMemoStore store) =>
+        app.MapGet("/api/memos/{id:guid}", (Guid id, IMemoStore store) =>
             {
                 var memo = store.Get(id);
                 return memo is null ? Results.NotFound() : Results.Ok(memo);
@@ -22,7 +21,7 @@ public static class MemoEndpoints
             .WithTags("Memos")
             .WithName("GetMemo");
 
-        app.MapPost("/api/memos", (CreateMemoRequest request, InMemoryMemoStore store) =>
+        app.MapPost("/api/memos", (CreateMemoRequest request, IMemoStore store) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Content))
                     return Results.BadRequest(new { message = "Title and content are required." });
@@ -34,7 +33,7 @@ public static class MemoEndpoints
             .WithTags("Memos")
             .WithName("CreateMemo");
 
-        app.MapPut("/api/memos/{id:guid}", (Guid id, UpdateMemoRequest request, InMemoryMemoStore store) =>
+        app.MapPut("/api/memos/{id:guid}", (Guid id, UpdateMemoRequest request, IMemoStore store) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Content))
                     return Results.BadRequest(new { message = "Title and content are required." });
@@ -49,7 +48,7 @@ public static class MemoEndpoints
             .WithTags("Memos")
             .WithName("UpdateMemo");
 
-        app.MapDelete("/api/memos/{id:guid}", (Guid id, InMemoryMemoStore store) =>
+        app.MapDelete("/api/memos/{id:guid}", (Guid id, IMemoStore store) =>
             store.Delete(id) ? Results.NoContent() : Results.NotFound())
             .RequireAuthorization()
             .WithTags("Memos")

@@ -1,9 +1,10 @@
 using System.Collections.Concurrent;
-using VocabuAI.Api.Domain;
+using VocabuAI.Application.Memos;
+using VocabuAI.Domain;
 
-namespace VocabuAI.Api.Infrastructure;
+namespace VocabuAI.Infrastructure.Memos;
 
-public sealed class InMemoryMemoStore
+public sealed class InMemoryMemoStore : IMemoStore
 {
     private readonly ConcurrentDictionary<Guid, Memo> _memos = new();
 

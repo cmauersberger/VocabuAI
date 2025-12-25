@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Options;
 
-namespace VocabuAI.Api.Infrastructure;
+namespace VocabuAI.Infrastructure;
 
 public sealed class OllamaClient
 {
@@ -40,4 +40,3 @@ public sealed record OllamaGenerateResponse(
     string response,
     bool done
 );
-

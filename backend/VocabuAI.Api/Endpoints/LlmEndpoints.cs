@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using VocabuAI.Api.Infrastructure;
+using VocabuAI.Infrastructure;
 
 namespace VocabuAI.Api.Endpoints;
 

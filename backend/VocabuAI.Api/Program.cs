@@ -4,6 +4,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
+using VocabuAI.Application.Memos;
+using VocabuAI.Infrastructure;
+using VocabuAI.Infrastructure.Memos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +23,7 @@ builder.Services.AddOptions<OllamaOptions>()
     .Validate(o => !string.IsNullOrWhiteSpace(o.Model), "Ollama:Model is required")
     .ValidateOnStart();
 
-builder.Services.AddSingleton<InMemoryMemoStore>();
+builder.Services.AddSingleton<IMemoStore, InMemoryMemoStore>();
 
 builder.Services.AddHttpClient<OllamaClient>((sp, client) =>
 {

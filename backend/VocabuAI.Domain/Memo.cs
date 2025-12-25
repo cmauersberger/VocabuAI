@@ -1,4 +1,4 @@
-namespace VocabuAI.Api.Domain;
+namespace VocabuAI.Domain;
 
 public sealed record Memo(
     Guid Id,
@@ -6,4 +6,3 @@ public sealed record Memo(
     string Content,
     DateTimeOffset CreatedAt
 );
-
