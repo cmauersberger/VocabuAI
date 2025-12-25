@@ -1,0 +1,198 @@
+import React from "react";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Button from "../../components/Button";
+import { decodeJwtPayload } from "../../infrastructure/jwt";
+
+type Props = {
+  onAuthenticated: (auth: AuthResult) => void;
+};
+
+type AuthResult = {
+  token: string;
+  email: string;
+  issuedAt?: number;
+  expiresAt?: number;
+};
+
+export default function AuthPage({ onAuthenticated }: Props) {
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE;
+
+  if (!apiBaseUrl) {
+    throw new Error("EXPO_PUBLIC_API_BASE is not set.");
+  }
+
+  const [mode, setMode] = React.useState<"login" | "signup">("login");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [status, setStatus] = React.useState<Status | null>(null);
+
+  const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
+  const handleLogin = async () => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !password) {
+      setStatus({ text: "Email and password are required.", tone: "error" });
+      return;
+    }
+
+    setStatus({ text: "Signing in...", tone: "info" });
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password })
+      });
+
+      if (!response.ok) {
+        setStatus({ text: "Login failed. Check your credentials.", tone: "error" });
+        return;
+      }
+
+      const payload = (await response.json()) as { accessToken: string };
+      const token = payload.accessToken;
+      const claims = decodeJwtPayload(token);
+      const issuedAt = claims?.iat ? claims.iat * 1000 : undefined;
+      const expiresAt = claims?.exp ? claims.exp * 1000 : undefined;
+      const claimEmail = claims?.email ?? normalizedEmail;
+
+      setStatus({ text: "Login successful.", tone: "success" });
+      onAuthenticated({ token, email: claimEmail, issuedAt, expiresAt });
+    } catch (error) {
+      setStatus({ text: "Unable to reach the API.", tone: "error" });
+    }
+  };
+
+  const handleSignup = async () => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !password) {
+      setStatus({ text: "Email and password are required.", tone: "error" });
+      return;
+    }
+
+    setStatus({ text: "Creating account...", tone: "info" });
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/CreateUser`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password })
+      });
+
+      if (!response.ok) {
+        const message =
+          response.status === 409
+            ? "Email already exists."
+            : "Could not create user.";
+        setStatus({ text: message, tone: "error" });
+        return;
+      }
+
+      setStatus({ text: "Account created. You can sign in now.", tone: "success" });
+      setMode("login");
+      setPassword("");
+    } catch (error) {
+      setStatus({ text: "Unable to reach the API.", tone: "error" });
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <Text style={styles.title}>
+        {mode === "login" ? "Sign In" : "Create Account"}
+      </Text>
+
+      <View style={styles.card}>
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+        />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Password"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+
+        {status ? (
+          <Text style={[styles.status, styles[`status${status.tone}`]]}>
+            {status.text}
+          </Text>
+        ) : null}
+
+        <Button
+          label={mode === "login" ? "Sign In" : "Create User"}
+          onClick={mode === "login" ? handleLogin : handleSignup}
+        />
+
+        <Text
+          style={styles.link}
+          onPress={() => setMode(mode === "login" ? "signup" : "login")}
+        >
+          {mode === "login" ? "Create new user" : "Back to login"}
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+type Status = {
+  text: string;
+  tone: "error" | "success" | "info";
+};
+
+const styles = StyleSheet.create({
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    justifyContent: "center",
+    gap: 16
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#E5E7EB",
+    textAlign: "center"
+  },
+  card: {
+    padding: 20,
+    borderRadius: 12,
+    backgroundColor: "rgba(148, 163, 184, 0.08)",
+    gap: 12
+  },
+  input: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    color: "#FFFFFF"
+  },
+  status: {
+    fontSize: 13
+  },
+  statuserror: {
+    color: "#FCA5A5"
+  },
+  statussuccess: {
+    color: "#86EFAC"
+  },
+  statusinfo: {
+    color: "#93C5FD"
+  },
+  link: {
+    marginTop: 4,
+    textAlign: "center",
+    color: "#A5B4FC"
+  }
+});

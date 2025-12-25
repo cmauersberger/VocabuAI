@@ -2,6 +2,7 @@ import React from "react";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Layout, { TabItem, TabKey } from "./components/Layout";
+import AuthPage from "./pages/Auth/AuthPage";
 import EditPage from "./pages/Edit/EditPage";
 import HomePage from "./pages/Home/HomePage";
 import LearnPage from "./pages/Learn/LearnPage";
@@ -13,6 +14,12 @@ if (Platform.OS === "web") {
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState<TabKey>("home");
+  const [auth, setAuth] = React.useState<AuthState>({
+    token: null,
+    email: null,
+    issuedAt: undefined,
+    expiresAt: undefined
+  });
 
   const tabs: TabItem[] = [
     { key: "home", label: "Home", icon: "⌂" },
@@ -28,23 +35,51 @@ export default function App() {
     settings: "Settings"
   };
 
+  const handleAuthenticated = (result: AuthState) => {
+    setAuth(result);
+    setActiveTab("home");
+  };
+
+  const handleLogout = () => {
+    setAuth({ token: null, email: null, issuedAt: undefined, expiresAt: undefined });
+    setActiveTab("home");
+  };
+
   const pageByTab: Record<TabKey, React.ReactNode> = {
     home: <HomePage />,
     edit: <EditPage />,
     learn: <LearnPage />,
-    settings: <SettingsPage />
+    settings: (
+      <SettingsPage
+        email={auth.email}
+        issuedAt={auth.issuedAt}
+        expiresAt={auth.expiresAt}
+        onLogout={handleLogout}
+      />
+    )
   };
 
   return (
     <SafeAreaProvider>
-      <Layout
-        title={titleByTab[activeTab]}
-        activeTab={activeTab}
-        tabs={tabs}
-        onNavigate={setActiveTab}
-      >
-        {pageByTab[activeTab]}
-      </Layout>
+      {auth.token ? (
+        <Layout
+          title={titleByTab[activeTab]}
+          activeTab={activeTab}
+          tabs={tabs}
+          onNavigate={setActiveTab}
+        >
+          {pageByTab[activeTab]}
+        </Layout>
+      ) : (
+        <AuthPage onAuthenticated={handleAuthenticated} />
+      )}
     </SafeAreaProvider>
   );
 }
+
+type AuthState = {
+  token: string | null;
+  email: string | null;
+  issuedAt?: number;
+  expiresAt?: number;
+};
