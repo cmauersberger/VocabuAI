@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -8,6 +9,7 @@ using VocabuAI.Api.Infrastructure;
 using VocabuAI.Application.Memos;
 using VocabuAI.Infrastructure;
 using VocabuAI.Infrastructure.Database;
+using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Memos;
 using VocabuAI.Infrastructure.Repositories;
 
@@ -39,6 +41,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IFlashCardRepository, FlashCardRepository>();
+builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
 
 builder.Services.AddHttpClient<OllamaClient>((sp, client) =>
 {
@@ -135,6 +138,7 @@ using (var scope = app.Services.CreateScope())
 
 app.MapHealthEndpoints(app.Environment.ApplicationName);
 app.MapAuthEndpoints();
+app.MapUserEndpoints();
 app.MapMemoEndpoints();
 app.MapLlmEndpoints();
 
