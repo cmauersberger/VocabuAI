@@ -1,12 +1,15 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Application.Memos;
 using VocabuAI.Infrastructure;
+using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Memos;
+using VocabuAI.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +27,18 @@ builder.Services.AddOptions<OllamaOptions>()
     .ValidateOnStart();
 
 builder.Services.AddSingleton<IMemoStore, InMemoryMemoStore>();
+
+var connectionString = builder.Configuration.GetConnectionString("Postgres");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'Postgres' is missing.");
+}
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IFlashCardRepository, FlashCardRepository>();
 
 builder.Services.AddHttpClient<OllamaClient>((sp, client) =>
 {
@@ -111,6 +126,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.Migrate();
+}
 
 app.MapHealthEndpoints(app.Environment.ApplicationName);
 app.MapAuthEndpoints();
