@@ -1,15 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VocabuAI.Api", "VocabuAI.Api\\VocabuAI.Api.csproj", "{8C4D1A2E-4F96-4B5B-9A6B-4A47D6C7DE3A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VocabuAI.Api", "VocabuAI.Api\VocabuAI.Api.csproj", "{8C4D1A2E-4F96-4B5B-9A6B-4A47D6C7DE3A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VocabuAI.Domain", "VocabuAI.Domain\VocabuAI.Domain.csproj", "{DEFC0BB8-D989-4164-91C5-5728901363C5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VocabuAI.Application", "VocabuAI.Application\VocabuAI.Application.csproj", "{8CF3022D-8488-4E8F-A8DD-597BF13E77E4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VocabuAI.Infrastructure", "VocabuAI.Infrastructure\VocabuAI.Infrastructure.csproj", "{7DD2807C-3DE1-46F8-9F2A-C222267CC17B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{06E38462-630E-4EBD-8D00-F5A67F8608BF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,5 +74,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CED5CEB3-4F9E-4A2F-A31B-3F8F8BCA051E}
 	EndGlobalSection
 EndGlobal
