@@ -9,7 +9,7 @@ public static class UserEndpoints
 {
     public static void MapUserEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/users", (CreateUserRequest request, IUserRepository users, IPasswordHasher<UserDb> hasher) =>
+        app.MapPost("/api/users/CreateUser", (CreateUserRequest request, IUserRepository users, IPasswordHasher<UserDb> hasher) =>
             {
                 var email = NormalizeEmail(request.Email);
                 if (string.IsNullOrWhiteSpace(email))
@@ -28,13 +28,13 @@ public static class UserEndpoints
                 users.SaveChanges();
 
                 var response = new UserResponse(user.Id, user.Email, user.DateTimeCreated, user.DateTimeUpdated);
-                return Results.Created($"/api/users/{user.Id}", response);
+                return Results.Created($"/api/users/GetUser/{user.Id}", response);
             })
             .AllowAnonymous()
             .WithTags("Users")
             .WithName("CreateUser");
 
-        app.MapPut("/api/users/{id:int}", (int id, UpdateUserRequest request, IUserRepository users, IPasswordHasher<UserDb> hasher) =>
+        app.MapPut("/api/users/UpdateUser/{id:int}", (int id, UpdateUserRequest request, IUserRepository users, IPasswordHasher<UserDb> hasher) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Password))
                     return Results.BadRequest(new { message = "Email or password is required." });

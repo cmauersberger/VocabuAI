@@ -68,7 +68,7 @@ export default function SettingsPage() {
     setSignupStatus({ text: "Creating account...", tone: "info" });
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/users`, {
+      const response = await fetch(`${apiBaseUrl}/api/users/CreateUser`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: signupPassword })
