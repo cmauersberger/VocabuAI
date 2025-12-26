@@ -16,6 +16,7 @@ type Props = {
   tabs: TabItem[];
   onNavigate: (tab: TabKey) => void;
   children: React.ReactNode;
+  showBottomNav?: boolean;
 };
 
 export default function Layout({
@@ -23,7 +24,8 @@ export default function Layout({
   activeTab,
   tabs,
   onNavigate,
-  children
+  children,
+  showBottomNav = true
 }: Props) {
   const insets = useSafeAreaInsets();
 
@@ -36,33 +38,39 @@ export default function Layout({
 
         <View style={styles.content}>{children}</View>
 
-        <View
-          style={[styles.bottomNav, { paddingBottom: insets.bottom }]}
-          pointerEvents="auto"
-        >
-          {tabs.map((tab) => {
-            const isActive = tab.key === activeTab;
-            return (
-              <Pressable
-                key={tab.key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                onPress={() => onNavigate(tab.key)}
-                style={({ pressed }) => [
-                  styles.navItem,
-                  pressed ? styles.navItemPressed : null
-                ]}
-              >
-                <Text style={[styles.navIcon, isActive ? styles.active : null]}>
-                  {tab.icon}
-                </Text>
-                <Text style={[styles.navLabel, isActive ? styles.active : null]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {showBottomNav ? (
+          <View
+            style={[styles.bottomNav, { paddingBottom: insets.bottom }]}
+            pointerEvents="auto"
+          >
+            {tabs.map((tab) => {
+              const isActive = tab.key === activeTab;
+              return (
+                <Pressable
+                  key={tab.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  onPress={() => onNavigate(tab.key)}
+                  style={({ pressed }) => [
+                    styles.navItem,
+                    pressed ? styles.navItemPressed : null
+                  ]}
+                >
+                  <Text
+                    style={[styles.navIcon, isActive ? styles.active : null]}
+                  >
+                    {tab.icon}
+                  </Text>
+                  <Text
+                    style={[styles.navLabel, isActive ? styles.active : null]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );

@@ -14,6 +14,8 @@ if (Platform.OS === "web") {
 
 export default function App() {
   const [activeTab, setActiveTab] = React.useState<TabKey>("home");
+  const [isLearningSessionActive, setIsLearningSessionActive] =
+    React.useState(false);
   const [auth, setAuth] = React.useState<AuthState>({
     token: null,
     email: null,
@@ -49,13 +51,20 @@ export default function App() {
       issuedAt: undefined,
       expiresAt: undefined
     });
+    setIsLearningSessionActive(false);
     setActiveTab("home");
   };
 
   const pageByTab: Record<TabKey, React.ReactNode> = {
     home: <HomePage userName={auth.userName} />,
     edit: <EditPage authToken={auth.token as string} />,
-    learn: <LearnPage />,
+    learn: (
+      <LearnPage
+        authToken={auth.token as string}
+        onSessionActiveChange={setIsLearningSessionActive}
+        onExitToOverview={() => setActiveTab("home")}
+      />
+    ),
     settings: (
       <SettingsPage
         email={auth.email}
@@ -75,6 +84,7 @@ export default function App() {
           activeTab={activeTab}
           tabs={tabs}
           onNavigate={setActiveTab}
+          showBottomNav={!isLearningSessionActive}
         >
           {pageByTab[activeTab]}
         </Layout>
