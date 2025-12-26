@@ -27,11 +27,39 @@ export default function AuthPage({ onAuthenticated }: Props) {
   const [userName, setUserName] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [status, setStatus] = React.useState<Status | null>(null);
+  const [isBackendHealthy, setIsBackendHealthy] = React.useState<boolean | null>(
+    null
+  );
 
   const normalizeEmail = (value: string) => value.trim().toLowerCase();
   const normalizeUserName = (value: string) => value.trim();
   const isValidUserName = (value: string) =>
     value.replace(/ /g, "").length >= 3;
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const checkHealth = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/health`, {
+          signal: controller.signal
+        });
+        setIsBackendHealthy(response.ok);
+      } catch {
+        setIsBackendHealthy(false);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    checkHealth();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [apiBaseUrl]);
 
   const handleLogin = async () => {
     const normalizedEmail = normalizeEmail(email);
@@ -122,9 +150,21 @@ export default function AuthPage({ onAuthenticated }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>
-        {mode === "login" ? "Sign In" : "Create Account"}
-      </Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>
+          {mode === "login" ? "Sign In" : "Create Account"}
+        </Text>
+        <View
+          style={[
+            styles.healthDot,
+            isBackendHealthy === null
+              ? styles.healthUnknown
+              : isBackendHealthy
+                ? styles.healthOk
+                : styles.healthFail
+          ]}
+        />
+      </View>
 
       <View style={styles.card}>
         {mode === "signup" ? (
@@ -197,6 +237,10 @@ const styles = StyleSheet.create({
     color: "#E5E7EB",
     textAlign: "center"
   },
+  titleRow: {
+    alignItems: "center",
+    gap: 8
+  },
   card: {
     padding: 20,
     borderRadius: 12,
@@ -228,5 +272,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
     color: "#A5B4FC"
+  },
+  healthDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5
+  },
+  healthOk: {
+    backgroundColor: "#22C55E"
+  },
+  healthFail: {
+    backgroundColor: "#EF4444"
+  },
+  healthUnknown: {
+    backgroundColor: "#94A3B8"
   }
 });
