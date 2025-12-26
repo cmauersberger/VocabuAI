@@ -54,7 +54,7 @@ export default function App() {
 
   const pageByTab: Record<TabKey, React.ReactNode> = {
     home: <HomePage userName={auth.userName} />,
-    edit: <EditPage />,
+    edit: <EditPage authToken={auth.token as string} />,
     learn: <LearnPage />,
     settings: (
       <SettingsPage

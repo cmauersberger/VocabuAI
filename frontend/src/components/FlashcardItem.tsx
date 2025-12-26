@@ -1,10 +1,10 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { VocabularyCard } from "../domain/vocabulary-card";
+import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
 import Button from "./Button";
 
 type Props = {
-  card: VocabularyCard;
+  card: FlashCardDto;
   onEdit?: () => void;
 };
 
@@ -12,10 +12,10 @@ export default function FlashcardItem({ card, onEdit }: Props) {
   return (
     <View style={styles.row}>
       <View style={styles.text}>
-        <Text style={styles.arabic}>{card.arabic}</Text>
-        <Text style={styles.meaning}>{card.meaning}</Text>
-        {card.synonyms?.length ? (
-          <Text style={styles.synonyms}>Synonyms: {card.synonyms.join(", ")}</Text>
+        <Text style={styles.arabic}>{card.foreignLanguage}</Text>
+        <Text style={styles.meaning}>{card.localLanguage}</Text>
+        {card.synonyms ? (
+          <Text style={styles.synonyms}>Synonyms: {card.synonyms}</Text>
         ) : null}
       </View>
       {onEdit ? (
@@ -57,4 +57,3 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(199, 210, 254, 0.14)"
   }
 });
-

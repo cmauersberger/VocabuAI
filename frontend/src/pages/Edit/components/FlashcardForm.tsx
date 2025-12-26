@@ -1,51 +1,47 @@
 import React from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import Button from "../../../components/Button";
-import type { VocabularyCard } from "../../../domain/vocabulary-card";
-
-export type FlashcardDraft = {
-  arabic: string;
-  meaning: string;
-  synonyms?: string[];
-};
+import type { FlashCardDto } from "../../../domain/dtos/flashcards/FlashCardDto";
+import type { FlashCardEditDto } from "../../../domain/dtos/flashcards/FlashCardEditDto";
 
 type Props = {
-  initialCard: VocabularyCard | null;
-  onSave: (draft: FlashcardDraft) => void;
+  initialCard: FlashCardDto | null;
+  onSave: (draft: FlashCardEditDto) => void;
   onCancel: () => void;
 };
 
 export default function FlashcardForm({ initialCard, onSave, onCancel }: Props) {
-  const [arabic, setArabic] = React.useState("");
-  const [meaning, setMeaning] = React.useState("");
+  const [foreignLanguage, setForeignLanguage] = React.useState("");
+  const [localLanguage, setLocalLanguage] = React.useState("");
   const [synonymsText, setSynonymsText] = React.useState("");
+  const [annotation, setAnnotation] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    setArabic(initialCard?.arabic ?? "");
-    setMeaning(initialCard?.meaning ?? "");
-    setSynonymsText((initialCard?.synonyms ?? []).join(", "));
+    setForeignLanguage(initialCard?.foreignLanguage ?? "");
+    setLocalLanguage(initialCard?.localLanguage ?? "");
+    setSynonymsText(initialCard?.synonyms ?? "");
+    setAnnotation(initialCard?.annotation ?? "");
     setError(null);
   }, [initialCard]);
 
   const handleSave = () => {
-    const normalizedArabic = arabic.trim();
-    const normalizedMeaning = meaning.trim();
+    const normalizedForeignLanguage = foreignLanguage.trim();
+    const normalizedLocalLanguage = localLanguage.trim();
+    const normalizedSynonyms = synonymsText.trim();
+    const normalizedAnnotation = annotation.trim();
 
-    if (!normalizedArabic || !normalizedMeaning) {
+    if (!normalizedForeignLanguage || !normalizedLocalLanguage) {
       setError("Arabic word and meaning are required.");
       return;
     }
 
-    const synonyms = synonymsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
     onSave({
-      arabic: normalizedArabic,
-      meaning: normalizedMeaning,
-      ...(synonyms.length ? { synonyms } : {})
+      id: initialCard?.id ?? 0,
+      foreignLanguage: normalizedForeignLanguage,
+      localLanguage: normalizedLocalLanguage,
+      synonyms: normalizedSynonyms.length ? normalizedSynonyms : null,
+      annotation: normalizedAnnotation.length ? normalizedAnnotation : null
     });
   };
 
@@ -53,9 +49,9 @@ export default function FlashcardForm({ initialCard, onSave, onCancel }: Props) 
     <View style={styles.form}>
       <Text style={styles.label}>Arabic (fully vocalized)</Text>
       <TextInput
-        value={arabic}
-        onChangeText={setArabic}
-        placeholder="مثال: القُرْآنُ"
+        value={foreignLanguage}
+        onChangeText={setForeignLanguage}
+        placeholder="U.O®OU,: OU,U,U?OñU'O›U+U?"
         placeholderTextColor="#64748B"
         style={styles.input}
         autoCapitalize="none"
@@ -64,8 +60,8 @@ export default function FlashcardForm({ initialCard, onSave, onCancel }: Props) 
 
       <Text style={styles.label}>Meaning</Text>
       <TextInput
-        value={meaning}
-        onChangeText={setMeaning}
+        value={localLanguage}
+        onChangeText={setLocalLanguage}
         placeholder="e.g. The Qur'an / der Koran"
         placeholderTextColor="#64748B"
         style={styles.input}
@@ -80,6 +76,16 @@ export default function FlashcardForm({ initialCard, onSave, onCancel }: Props) 
         placeholderTextColor="#64748B"
         style={styles.input}
         autoCapitalize="none"
+      />
+
+      <Text style={styles.label}>Annotation</Text>
+      <TextInput
+        value={annotation}
+        onChangeText={setAnnotation}
+        placeholder="optional: notes, usage, context"
+        placeholderTextColor="#64748B"
+        style={styles.input}
+        autoCapitalize="sentences"
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -126,4 +132,3 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(148, 163, 184, 0.18)"
   }
 });
-

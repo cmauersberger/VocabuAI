@@ -1,16 +1,26 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import type { VocabularyCard } from "../../domain/vocabulary-card";
+import type { FlashCardDto } from "../../domain/dtos/flashcards/FlashCardDto";
+import type { FlashCardEditDto } from "../../domain/dtos/flashcards/FlashCardEditDto";
 import Button from "../../components/Button";
 import FlashcardItem from "../../components/FlashcardItem";
-import FlashcardForm, {
-  FlashcardDraft
-} from "./components/FlashcardForm";
+import FlashcardForm from "./components/FlashcardForm";
 
-export default function EditPage() {
-  const [cards, setCards] = React.useState<VocabularyCard[]>([]);
+type Props = {
+  authToken: string;
+};
+
+export default function EditPage({ authToken }: Props) {
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE;
+
+  if (!apiBaseUrl) {
+    throw new Error("EXPO_PUBLIC_API_BASE is not set.");
+  }
+
+  const [cards, setCards] = React.useState<FlashCardDto[]>([]);
   const [isFormVisible, setIsFormVisible] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [status, setStatus] = React.useState<string | null>(null);
 
   const resetForm = () => {
     setEditingId(null);
@@ -21,28 +31,74 @@ export default function EditPage() {
     setIsFormVisible(true);
   };
 
-  const generateId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const loadCards = React.useCallback(async () => {
+    setStatus("Loading...");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/flashcards/getFlashCards`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (!response.ok) {
+        setStatus("Unable to load flashcards.");
+        return;
+      }
+
+      const payload = (await response.json()) as FlashCardDto[];
+      setCards(payload);
+      setStatus(null);
+    } catch (error) {
+      setStatus("Unable to reach the API.");
+    }
+  }, [apiBaseUrl, authToken]);
+
+  React.useEffect(() => {
+    loadCards();
+  }, [loadCards]);
 
   const onCancel = () => {
     resetForm();
     setIsFormVisible(false);
   };
 
-  const onSave = (draft: FlashcardDraft) => {
-    const next: VocabularyCard = {
-      id: editingId ?? generateId(),
-      arabic: draft.arabic,
-      meaning: draft.meaning,
-      ...(draft.synonyms?.length ? { synonyms: draft.synonyms } : {})
+  const onSave = async (draft: FlashCardEditDto) => {
+    const payload: FlashCardEditDto = {
+      ...draft,
+      id: editingId ?? 0
     };
 
-    setCards((prev) => {
-      if (!editingId) return [next, ...prev];
-      return prev.map((c) => (c.id === editingId ? next : c));
-    });
+    try {
+      const response = await fetch(
+        editingId
+          ? `${apiBaseUrl}/api/flashcards/updateFlashCard/${editingId}`
+          : `${apiBaseUrl}/api/flashcards/createFlashCard`,
+        {
+          method: editingId ? "PUT" : "POST",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        }
+      );
 
-    resetForm();
-    setIsFormVisible(false);
+      if (!response.ok) {
+        setStatus("Unable to save flashcard.");
+        return;
+      }
+
+      const updated = (await response.json()) as FlashCardDto;
+
+      setCards((prev) => {
+        if (!editingId) return [updated, ...prev];
+        return prev.map((c) => (c.id === editingId ? updated : c));
+      });
+
+      setStatus(null);
+      resetForm();
+      setIsFormVisible(false);
+    } catch (error) {
+      setStatus("Unable to reach the API.");
+    }
   };
 
   const editingCard =
@@ -65,6 +121,7 @@ export default function EditPage() {
       <Text style={styles.sectionTitle}>Flashcards</Text>
 
       <ScrollView contentContainerStyle={styles.list}>
+        {status ? <Text style={styles.status}>{status}</Text> : null}
         {cards.length === 0 ? (
           <Text style={styles.empty}>No flashcards yet.</Text>
         ) : (
@@ -103,6 +160,9 @@ const styles = StyleSheet.create({
   list: {
     paddingVertical: 8,
     gap: 10
+  },
+  status: {
+    color: "#93C5FD"
   },
   empty: {
     color: "#94A3B8"
