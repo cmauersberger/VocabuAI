@@ -139,7 +139,6 @@ using (var scope = app.Services.CreateScope())
 app.MapHealthEndpoints(app.Environment.ApplicationName);
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
-app.MapMemoEndpoints();
 app.MapLlmEndpoints();
 
 app.Run();
