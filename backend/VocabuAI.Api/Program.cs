@@ -6,11 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
-using VocabuAI.Application.Memos;
 using VocabuAI.Infrastructure;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
-using VocabuAI.Infrastructure.Memos;
 using VocabuAI.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,7 +26,6 @@ builder.Services.AddOptions<OllamaOptions>()
     .Validate(o => !string.IsNullOrWhiteSpace(o.Model), "Ollama:Model is required")
     .ValidateOnStart();
 
-builder.Services.AddSingleton<IMemoStore, InMemoryMemoStore>();
 
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
 if (string.IsNullOrWhiteSpace(connectionString))
