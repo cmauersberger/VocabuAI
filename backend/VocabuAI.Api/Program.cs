@@ -122,5 +122,6 @@ app.MapHealthEndpoints(app.Environment.ApplicationName);
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapFlashCardEndpoints();
+app.MapLearningSessionEndpoints();
 
 app.Run();

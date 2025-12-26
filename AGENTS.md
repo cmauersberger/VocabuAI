@@ -17,3 +17,5 @@
 ## Data access
 - Keep query logic in repositories, not in endpoints.
 - Never trust client input for user identity; derive user id from claims.
+## Identifier naming
+- For Guid-typed fields, name the property `Guid` instead of `Id`.
