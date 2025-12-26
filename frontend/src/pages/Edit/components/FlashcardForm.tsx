@@ -51,7 +51,7 @@ export default function FlashcardForm({ initialCard, onSave, onCancel }: Props) 
       <TextInput
         value={foreignLanguage}
         onChangeText={setForeignLanguage}
-        placeholder="U.O®OU,: OU,U,U?OñU'O›U+U?"
+        placeholder="مثال: القُرْآن"
         placeholderTextColor="#64748B"
         style={styles.input}
         autoCapitalize="none"

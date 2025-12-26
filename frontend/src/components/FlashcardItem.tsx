@@ -34,7 +34,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.25)",
-    backgroundColor: "rgba(15, 23, 42, 0.4)"
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center"
   },
   text: {
     flex: 1,
