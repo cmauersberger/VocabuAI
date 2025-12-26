@@ -19,3 +19,5 @@
 - Never trust client input for user identity; derive user id from claims.
 ## Identifier naming
 - For Guid-typed fields, name the property `Guid` instead of `Id`.
+## Constants
+- Global constants should be in UPPER_SNAKE_CASE (e.g., `IGNORE_VOCALIZATION`).
