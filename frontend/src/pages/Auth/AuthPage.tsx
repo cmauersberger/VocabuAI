@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Button from "../../components/Button";
+import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { decodeJwtPayload } from "../../infrastructure/jwt";
 
 type Props = {
@@ -16,11 +17,7 @@ type AuthResult = {
 };
 
 export default function AuthPage({ onAuthenticated }: Props) {
-  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE;
-
-  if (!apiBaseUrl) {
-    throw new Error("EXPO_PUBLIC_API_BASE is not set.");
-  }
+  const apiBaseUrl = getApiBaseUrl();
 
   const [mode, setMode] = React.useState<"login" | "signup">("login");
   const [email, setEmail] = React.useState("");

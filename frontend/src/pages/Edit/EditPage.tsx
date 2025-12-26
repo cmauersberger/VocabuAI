@@ -5,17 +5,14 @@ import type { FlashCardEditDto } from "../../domain/dtos/flashcards/FlashCardEdi
 import Button from "../../components/Button";
 import FlashcardItem from "../../components/FlashcardItem";
 import FlashcardForm from "./components/FlashcardForm";
+import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 
 type Props = {
   authToken: string;
 };
 
 export default function EditPage({ authToken }: Props) {
-  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE;
-
-  if (!apiBaseUrl) {
-    throw new Error("EXPO_PUBLIC_API_BASE is not set.");
-  }
+  const apiBaseUrl = getApiBaseUrl();
 
   const [cards, setCards] = React.useState<FlashCardDto[]>([]);
   const [isFormVisible, setIsFormVisible] = React.useState(false);
