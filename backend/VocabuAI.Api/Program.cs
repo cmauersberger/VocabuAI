@@ -6,7 +6,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
-using VocabuAI.Infrastructure;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Repositories;
@@ -20,13 +19,6 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(o => !string.IsNullOrWhiteSpace(o.SigningKey) && o.SigningKey.Length >= 32, "Jwt:SigningKey must be at least 32 characters")
     .ValidateOnStart();
 
-builder.Services.AddOptions<OllamaOptions>()
-    .Bind(builder.Configuration.GetSection(OllamaOptions.SectionName))
-    .Validate(o => !string.IsNullOrWhiteSpace(o.BaseUrl), "Ollama:BaseUrl is required")
-    .Validate(o => !string.IsNullOrWhiteSpace(o.Model), "Ollama:Model is required")
-    .ValidateOnStart();
-
-
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
@@ -39,13 +31,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IFlashCardRepository, FlashCardRepository>();
 builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
-
-builder.Services.AddHttpClient<OllamaClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OllamaOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(60);
-});
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 var signingKeyBytes = Encoding.UTF8.GetBytes(jwt.SigningKey);
@@ -137,6 +122,5 @@ app.MapHealthEndpoints(app.Environment.ApplicationName);
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapFlashCardEndpoints();
-app.MapLlmEndpoints();
 
 app.Run();
