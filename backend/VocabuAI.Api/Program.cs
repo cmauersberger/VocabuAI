@@ -31,6 +31,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IFlashCardRepository, FlashCardRepository>();
+builder.Services.AddScoped<IFlashCardLearningStateRepository, FlashCardLearningStateRepository>();
+builder.Services.AddScoped<FlashCardLearningProgressService>();
 builder.Services.AddScoped<ILearningSessionService, LearningSessionService>();
 builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
 
