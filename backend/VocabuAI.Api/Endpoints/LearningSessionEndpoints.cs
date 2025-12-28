@@ -70,7 +70,7 @@ public static class LearningSessionEndpoints
                     learningStateRepository.Add(learningState);
                 }
 
-                progressService.ApplyAnswer(learningState, request.LearningTaskType, request.IsCorrect, DateTimeOffset.UtcNow);
+                progressService.ApplyAnswer(learningState, request.LearningTaskType, request.IsCorrect);
                 learningStateRepository.SaveChanges();
 
                 return Results.Ok(ToDto(learningState));

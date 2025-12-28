@@ -10,36 +10,40 @@ public sealed class FlashCardLearningProgressService
         {
             1,
             new AdvancementRule(
-                currentBox: 1,
-                requiredProgressPoints: 2,
-                minimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>())
+                CurrentBox: 1,
+                RequiredProgressPoints: 2,
+                MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>(),
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(7))
         },
         {
             2,
             new AdvancementRule(
-                currentBox: 2,
-                requiredProgressPoints: 5,
-                minimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>())
+                CurrentBox: 2,
+                RequiredProgressPoints: 5,
+                MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>(),
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(25))
         },
         {
             3,
             new AdvancementRule(
-                currentBox: 3,
-                requiredProgressPoints: 10,
-                minimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
+                CurrentBox: 3,
+                RequiredProgressPoints: 10,
+                MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
                 {
                     [LearningTaskType.FreeText] = 2
-                })
+                },
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(60))
         },
         {
             4,
             new AdvancementRule(
-                currentBox: 4,
-                requiredProgressPoints: 15,
-                minimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
+                CurrentBox: 4,
+                RequiredProgressPoints: 15,
+                MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
                 {
                     [LearningTaskType.FreeText] = 3
-                })
+                },
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(120))
         }
     };
 
@@ -50,9 +54,9 @@ public sealed class FlashCardLearningProgressService
         [LearningTaskType.FreeText] = 3
     };
 
-    public void ApplyAnswer(FlashCardLearningStateDb state, LearningTaskType taskType, bool isCorrect, DateTimeOffset answeredAt)
+    public void ApplyAnswer(FlashCardLearningStateDb state, LearningTaskType taskType, bool isCorrect)
     {
-        state.LastAnsweredAt = answeredAt;
+        state.LastAnsweredAt = DateTimeOffset.UtcNow;
 
         if (!isCorrect)
         {
@@ -108,7 +112,8 @@ public sealed class FlashCardLearningProgressService
     private sealed record AdvancementRule(
         int CurrentBox,
         int RequiredProgressPoints,
-        IReadOnlyDictionary<LearningTaskType, int> MinimumCorrectCountsByTaskType)
+        IReadOnlyDictionary<LearningTaskType, int> MinimumCorrectCountsByTaskType,
+        TimeSpan? MinimumElapsedSinceCreated)
     {
         public bool IsSatisfiedBy(FlashCardLearningStateDb state)
         {
@@ -117,10 +122,31 @@ public sealed class FlashCardLearningProgressService
                 return false;
             }
 
+            if (!MeetsMinimumAge(state))
+            {
+                return false;
+            }
+
             foreach (var requirement in MinimumCorrectCountsByTaskType)
             {
                 if (!state.CorrectCountsByQuestionTypeInCurrentBox.TryGetValue(requirement.Key, out var current)
                     || current < requirement.Value)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool MeetsMinimumAge(FlashCardLearningStateDb state)
+        {
+            var createdAt = state.DateTimeCreated;
+
+            if (MinimumElapsedSinceCreated.HasValue)
+            {
+                var minEligibleAt = createdAt.Add(MinimumElapsedSinceCreated.Value);
+                if (DateTimeOffset.UtcNow < minEligibleAt)
                 {
                     return false;
                 }
