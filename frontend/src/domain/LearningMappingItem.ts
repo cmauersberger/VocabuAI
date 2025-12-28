@@ -2,6 +2,7 @@
 import type { LearningText } from "./LearningText";
 
 export type LearningMappingItem = {
+  flashCardId: number;
   left: LearningText;
   right: LearningText;
 };

@@ -82,6 +82,7 @@ public sealed class LearningSessionService : ILearningSessionService
         var answers = BuildAnswerOptions(answerLanguage, answerValue, flashCard.Synonyms);
 
         return new FreeTextTaskPayload(
+            flashCard.Id,
             new LearningText(questionLanguage, questionValue),
             answers
         );
@@ -113,6 +114,7 @@ public sealed class LearningSessionService : ILearningSessionService
         Shuffle(options, random);
 
         return new MultipleChoiceTaskPayload(
+            flashCard.Id,
             LearningSelectionMode.Single,
             new LearningText(questionLanguage, questionValue),
             options
@@ -126,6 +128,7 @@ public sealed class LearningSessionService : ILearningSessionService
 
         var items = selectedCards
             .Select(card => new LearningMappingItem(
+                card.Id,
                 new LearningText(LearningLanguage.Foreign, card.ForeignLanguage),
                 new LearningText(LearningLanguage.Local, card.LocalLanguage)))
             .ToArray();

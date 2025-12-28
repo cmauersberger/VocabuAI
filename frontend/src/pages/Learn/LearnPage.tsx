@@ -56,6 +56,34 @@ export default function LearnPage({
     message: string;
   }>(null);
   const [isAdvancing, setIsAdvancing] = React.useState(false);
+  const sendFlashcardAnswer = React.useCallback(
+    async (task: LearningTask, isCorrect: boolean) => {
+      const flashCardIds = getFlashCardIds(task);
+      if (flashCardIds.length === 0) return;
+
+      try {
+        await Promise.all(
+          flashCardIds.map((flashCardId) =>
+            fetch(`${apiBaseUrl}/learning-session/flashcardAnswered`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                flashCardId,
+                learningTaskType: task.taskType,
+                isCorrect
+              })
+            })
+          )
+        );
+      } catch {
+        // Ignore answer sync failures to avoid blocking the learning flow.
+      }
+    },
+    [apiBaseUrl, authToken]
+  );
 
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
@@ -117,6 +145,8 @@ export default function LearnPage({
     (isCorrect: boolean) => {
       if (!currentTask) return;
 
+      void sendFlashcardAnswer(currentTask, isCorrect);
+
       const nextTasks = isCorrect ? tasks : [...tasks, currentTask];
       const nextCompletedGuids = new Set(completedGuids);
       if (isCorrect) {
@@ -172,6 +202,7 @@ export default function LearnPage({
       incorrectAnswers,
       onSessionActiveChange,
       resetSessionState,
+      sendFlashcardAnswer,
       startedAt,
       tasks,
       totalAnswers
@@ -302,6 +333,30 @@ function TaskRenderer({ task, onAnswer, disabled }: TaskRendererProps) {
       );
     default:
       return null;
+  }
+}
+
+function getFlashCardIds(task: LearningTask): number[] {
+  switch (task.taskType) {
+    case LearningTaskType.FreeText: {
+      const payload = task.payload as typeof task.payload & { FlashCardId?: number };
+      return [payload.flashCardId ?? payload.FlashCardId ?? 0].filter((id) => id > 0);
+    }
+    case LearningTaskType.MultipleChoice: {
+      const payload = task.payload as typeof task.payload & { FlashCardId?: number };
+      return [payload.flashCardId ?? payload.FlashCardId ?? 0].filter((id) => id > 0);
+    }
+    case LearningTaskType.Mapping: {
+      const ids = task.payload.items
+        .map((item) => {
+          const mapped = item as typeof item & { FlashCardId?: number };
+          return mapped.flashCardId ?? mapped.FlashCardId ?? 0;
+        })
+        .filter((id) => id > 0);
+      return Array.from(new Set(ids));
+    }
+    default:
+      return [];
   }
 }
 
