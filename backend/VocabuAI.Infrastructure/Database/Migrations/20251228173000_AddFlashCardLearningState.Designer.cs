@@ -35,9 +35,14 @@ namespace VocabuAI.Infrastructure.Database.Migrations
                 value => JsonSerializer.Serialize(value, jsonOptions),
                 value => JsonSerializer.Deserialize<Dictionary<LearningTaskType, int>>(value, jsonOptions) ?? new Dictionary<LearningTaskType, int>());
             var taskTypeCountsComparer = new ValueComparer<Dictionary<LearningTaskType, int>>(
-                (left, right) => left.Count == right.Count && left.All(item => right.TryGetValue(item.Key, out var rightValue) && rightValue == item.Value),
-                value => value.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.Key, item.Value)),
-                value => value.ToDictionary(item => item.Key, item => item.Value));
+                (left, right) =>
+                    ReferenceEquals(left, right)
+                    || (left != null
+                        && right != null
+                        && left.Count == right.Count
+                        && left.All(item => right.ContainsKey(item.Key) && right[item.Key] == item.Value)),
+                value => value == null ? 0 : value.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.Key, item.Value)),
+                value => value == null ? new Dictionary<LearningTaskType, int>() : value.ToDictionary(item => item.Key, item => item.Value));
 
             modelBuilder.Entity("VocabuAI.Infrastructure.Database.Entities.FlashCardDb", b =>
                 {

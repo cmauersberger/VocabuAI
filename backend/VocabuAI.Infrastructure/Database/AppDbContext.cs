@@ -1,6 +1,8 @@
+using System.Linq;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VocabuAI.Domain.Learning;
 using VocabuAI.Infrastructure.Database.Entities;
 
@@ -67,13 +69,14 @@ public sealed class AppDbContext : DbContext
             value => JsonSerializer.Serialize(value, jsonOptions),
             value => JsonSerializer.Deserialize<Dictionary<LearningTaskType, int>>(value, jsonOptions) ?? new Dictionary<LearningTaskType, int>());
         var taskTypeCountsComparer = new ValueComparer<Dictionary<LearningTaskType, int>>(
-            (left, right) => left.Count == right.Count && left.All(item => right.TryGetValue(item.Key, out var rightValue) && rightValue == item.Value),
-            value => value.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.Key, item.Value)),
-            value => value.ToDictionary(item => item.Key, item => item.Value));
+            (left, right) => DictionaryEquals(left, right),
+            value => DictionaryHash(value),
+            value => CloneDictionary(value));
 
         modelBuilder.Entity<FlashCardLearningStateDb>(entity =>
         {
-            entity.ToTable("FlashCardLearningState");
+            entity.ToTable("FlashCardLearningState", table =>
+                table.HasCheckConstraint("CK_FlashCardLearningState_Box_Range", "\"Box\" >= 1 AND \"Box\" <= 5"));
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.FlashCardId).IsRequired();
@@ -96,7 +99,6 @@ public sealed class AppDbContext : DbContext
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.FlashCardId).IsUnique();
-            entity.HasCheckConstraint("CK_FlashCardLearningState_Box_Range", "\"Box\" >= 1 AND \"Box\" <= 5");
         });
     }
 
@@ -117,4 +119,35 @@ public sealed class AppDbContext : DbContext
             }
         }
     }
+
+    private static bool DictionaryEquals(
+        Dictionary<LearningTaskType, int>? left,
+        Dictionary<LearningTaskType, int>? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left is null || right is null || left.Count != right.Count)
+        {
+            return false;
+        }
+
+        foreach (var item in left)
+        {
+            if (!right.TryGetValue(item.Key, out var rightValue) || rightValue != item.Value)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static int DictionaryHash(Dictionary<LearningTaskType, int>? value)
+        => value is null ? 0 : value.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.Key, item.Value));
+
+    private static Dictionary<LearningTaskType, int> CloneDictionary(Dictionary<LearningTaskType, int>? value)
+        => value is null ? new Dictionary<LearningTaskType, int>() : value.ToDictionary(item => item.Key, item => item.Value);
 }

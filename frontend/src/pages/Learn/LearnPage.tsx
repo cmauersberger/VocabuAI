@@ -32,7 +32,7 @@ type SessionSummary = {
   endedAt: number | null;
 };
 
-const DEFAULT_TASK_COUNT = 10;
+const DEFAULT_TASK_COUNT = 4;
 const IGNORE_VOCALIZATION = true;
 
 export default function LearnPage({
