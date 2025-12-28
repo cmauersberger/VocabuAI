@@ -9,4 +9,5 @@ public sealed class FlashCardDb : BaseEntityDb
     public string? Annotation { get; set; }
 
     public UserDb User { get; set; } = null!;
+    public FlashCardLearningStateDb? LearningState { get; set; }
 }
