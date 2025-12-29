@@ -57,6 +57,8 @@ export default function LearnPage({
   const [boxCounts, setBoxCounts] = React.useState<Record<string, number> | null>(
     null
   );
+  const [totalAnswers, setTotalAnswers] = React.useState(0);
+  const [incorrectAnswers, setIncorrectAnswers] = React.useState(0);
   const [feedback, setFeedback] = React.useState<null | {
     correct: boolean;
     message: string;
@@ -145,11 +147,9 @@ export default function LearnPage({
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
 
-  const completedCount = React.useMemo(() => {
-    return tasks.filter((task) => completedGuids.has(task.guid)).length;
-  }, [tasks, completedGuids]);
-
-  const progress = tasks.length === 0 ? 0 : completedCount / tasks.length;
+  const totalSteps = tasks.length;
+  const answeredSteps = Math.min(totalAnswers, totalSteps);
+  const progress = totalSteps === 0 ? 0 : answeredSteps / totalSteps;
 
   const resetSessionState = React.useCallback(() => {
     setSession(null);
@@ -198,9 +198,6 @@ export default function LearnPage({
       setStatus("Unable to reach the API.");
     }
   };
-
-  const [totalAnswers, setTotalAnswers] = React.useState(0);
-  const [incorrectAnswers, setIncorrectAnswers] = React.useState(0);
 
   const recordAnswer = React.useCallback(
     (isCorrect: boolean, mappingAnswers?: MappingAnswerResult[]) => {
@@ -356,7 +353,7 @@ export default function LearnPage({
 
       <View style={styles.sessionMeta}>
         <Text style={styles.metaText}>
-          Progress: {completedCount}/{tasks.length}
+          Progress: {answeredSteps}/{totalSteps}
         </Text>
         <Text style={styles.metaText}>Incorrect: {incorrectAnswers}</Text>
       </View>
