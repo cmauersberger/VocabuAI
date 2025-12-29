@@ -31,16 +31,23 @@ public static class LearningSessionEndpoints
                 if (request.TaskCount <= 0)
                     return Results.BadRequest(new { message = "TaskCount must be greater than 0." });
 
-                var flashCards = repository.GetAllByUserId(userId).ToArray();
+                var flashCards = repository.GetAllWithLearningStateByUserId(userId).ToArray();
                 if (flashCards.Length == 0)
                     return Results.BadRequest(new { message = "No flashcards available for learning." });
 
                 var learningCards = flashCards
-                    .Select(card => new LearningFlashCard(
-                        card.Id,
-                        card.ForeignLanguage,
-                        card.LocalLanguage,
-                        card.Synonyms))
+                    .Select(card =>
+                    {
+                        var state = card.LearningState;
+                        return new LearningFlashCard(
+                            card.Id,
+                            card.ForeignLanguage,
+                            card.LocalLanguage,
+                            card.Synonyms,
+                            state?.Box ?? 1,
+                            state?.CorrectStreak ?? 0,
+                            state?.LastAnsweredAt);
+                    })
                     .ToArray();
 
                 var session = learningSessionService.CreateSession(userId, request.TaskCount, learningCards);

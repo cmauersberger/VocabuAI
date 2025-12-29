@@ -17,6 +17,14 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
             .OrderByDescending(card => card.DateTimeCreated)
             .ToArray();
 
+    public IReadOnlyCollection<FlashCardDb> GetAllWithLearningStateByUserId(int userId)
+        => DbContext.FlashCards
+            .AsNoTracking()
+            .Include(card => card.LearningState)
+            .Where(card => card.UserId == userId)
+            .OrderByDescending(card => card.DateTimeCreated)
+            .ToArray();
+
     public FlashCardDb? GetByIdAndUserId(int id, int userId)
         => DbContext.FlashCards.FirstOrDefault(card => card.Id == id && card.UserId == userId);
 

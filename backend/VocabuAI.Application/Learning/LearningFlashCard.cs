@@ -4,5 +4,8 @@ public sealed record LearningFlashCard(
     int Id,
     string ForeignLanguage,
     string LocalLanguage,
-    string? Synonyms
+    string? Synonyms,
+    int Box,
+    int CorrectStreak,
+    DateTimeOffset? LastAnsweredAt
 );
