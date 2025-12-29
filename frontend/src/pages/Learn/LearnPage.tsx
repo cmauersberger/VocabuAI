@@ -32,6 +32,8 @@ type SessionSummary = {
   endedAt: number | null;
 };
 
+type MappingAnswerResult = { flashCardId: number; isCorrect: boolean };
+
 const DEFAULT_TASK_COUNT = 4;
 const IGNORE_VOCALIZATION = true;
 
@@ -57,8 +59,22 @@ export default function LearnPage({
   }>(null);
   const [isAdvancing, setIsAdvancing] = React.useState(false);
   const sendFlashcardAnswer = React.useCallback(
-    async (task: LearningTask, isCorrect: boolean) => {
-      const flashCardIds = getFlashCardIds(task);
+    async (
+      task: LearningTask,
+      isCorrect: boolean,
+      mappingAnswers?: MappingAnswerResult[]
+    ) => {
+      const mappingPayload =
+        task.taskType === LearningTaskType.Mapping &&
+        mappingAnswers &&
+        mappingAnswers.length > 0
+          ? mappingAnswers
+          : null;
+      const flashCardIds = (
+        mappingPayload
+          ? mappingPayload.map((answer) => answer.flashCardId)
+          : getFlashCardIds(task)
+      ).filter((id) => id > 0);
       if (flashCardIds.length === 0) return;
 
       try {
@@ -73,7 +89,13 @@ export default function LearnPage({
               body: JSON.stringify({
                 flashCardId,
                 learningTaskType: task.taskType,
-                isCorrect
+                isCorrect: mappingPayload
+                  ? Boolean(
+                      mappingPayload.find(
+                        (answer) => answer.flashCardId === flashCardId
+                      )?.isCorrect
+                    )
+                  : isCorrect
               })
             })
           )
@@ -142,10 +164,10 @@ export default function LearnPage({
   const [incorrectAnswers, setIncorrectAnswers] = React.useState(0);
 
   const recordAnswer = React.useCallback(
-    (isCorrect: boolean) => {
+    (isCorrect: boolean, mappingAnswers?: MappingAnswerResult[]) => {
       if (!currentTask) return;
 
-      void sendFlashcardAnswer(currentTask, isCorrect);
+      void sendFlashcardAnswer(currentTask, isCorrect, mappingAnswers);
 
       const nextTasks = isCorrect ? tasks : [...tasks, currentTask];
       const nextCompletedGuids = new Set(completedGuids);
@@ -301,7 +323,7 @@ export default function LearnPage({
 
 type TaskRendererProps = {
   task: LearningTask;
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (isCorrect: boolean, mappingAnswers?: MappingAnswerResult[]) => void;
   disabled: boolean;
 };
 
@@ -465,7 +487,7 @@ function MultipleChoiceTask({
 
 type MappingTaskProps = {
   items: LearningMappingItem[];
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (isCorrect: boolean, mappingAnswers: MappingAnswerResult[]) => void;
   disabled: boolean;
 };
 
@@ -512,16 +534,17 @@ function MappingTask({ items, onAnswer, disabled }: MappingTaskProps) {
 
   const submit = () => {
     if (disabled) return;
-    if (Object.keys(pairs).length !== items.length) {
-      onAnswer(false);
-      return;
-    }
+    const mappingAnswers = items.map((item, index) => {
+      const leftKey = `left-${index}`;
+      const rightKey = `right-${index}`;
+      return {
+        flashCardId: item.flashCardId,
+        isCorrect: pairs[leftKey] === rightKey
+      };
+    });
+    const isCorrect = mappingAnswers.every((answer) => answer.isCorrect);
 
-    const isCorrect = Object.entries(correctPairs).every(
-      ([leftKey, rightKey]) => pairs[leftKey] === rightKey
-    );
-
-    onAnswer(isCorrect);
+    onAnswer(isCorrect, mappingAnswers);
   };
 
   return (
