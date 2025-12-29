@@ -34,10 +34,9 @@ export default function AuthPage({ onAuthenticated }: Props) {
     value.replace(/ /g, "").length >= 3;
 
   React.useEffect(() => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
     const checkHealth = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       try {
         const response = await fetch(`${apiBaseUrl}/health`, {
           signal: controller.signal
@@ -50,11 +49,13 @@ export default function AuthPage({ onAuthenticated }: Props) {
       }
     };
 
-    checkHealth();
+    void checkHealth();
+    const intervalId = setInterval(() => {
+      void checkHealth();
+    }, 10000);
 
     return () => {
-      clearTimeout(timeoutId);
-      controller.abort();
+      clearInterval(intervalId);
     };
   }, [apiBaseUrl]);
 

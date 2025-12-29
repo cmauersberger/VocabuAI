@@ -4,7 +4,7 @@
     "VocabuAI.Api": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5080;http://0.0.0.0:5080",
       "environmentVariables": {
