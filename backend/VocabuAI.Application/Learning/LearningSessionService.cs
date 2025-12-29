@@ -9,6 +9,40 @@ public sealed class LearningSessionService : ILearningSessionService
     private const int BOX_3_PERCENT = 15;
     private const int BOX_4_PERCENT = 10;
     private const int BOX_5_PERCENT = 5;
+    private static readonly IReadOnlyDictionary<int, IReadOnlyDictionary<LearningTaskType, int>> TaskTypeSharesByBox =
+        new Dictionary<int, IReadOnlyDictionary<LearningTaskType, int>>
+        {
+            [1] = new Dictionary<LearningTaskType, int>
+            {
+                [LearningTaskType.FreeText] = 34,
+                [LearningTaskType.MultipleChoice] = 33,
+                [LearningTaskType.Mapping] = 33
+            },
+            [2] = new Dictionary<LearningTaskType, int>
+            {
+                [LearningTaskType.FreeText] = 34,
+                [LearningTaskType.MultipleChoice] = 33,
+                [LearningTaskType.Mapping] = 33
+            },
+            [3] = new Dictionary<LearningTaskType, int>
+            {
+                [LearningTaskType.FreeText] = 50,
+                [LearningTaskType.MultipleChoice] = 30,
+                [LearningTaskType.Mapping] = 20
+            },
+            [4] = new Dictionary<LearningTaskType, int>
+            {
+                [LearningTaskType.FreeText] = 60,
+                [LearningTaskType.MultipleChoice] = 25,
+                [LearningTaskType.Mapping] = 15
+            },
+            [5] = new Dictionary<LearningTaskType, int>
+            {
+                [LearningTaskType.FreeText] = 70,
+                [LearningTaskType.MultipleChoice] = 20,
+                [LearningTaskType.Mapping] = 10
+            }
+        };
 
     public LearningSession CreateSession(int userId, int taskCount, IReadOnlyList<LearningFlashCard> flashCards)
     {
@@ -40,7 +74,7 @@ public sealed class LearningSessionService : ILearningSessionService
 
         foreach (var flashCard in selectedCards)
         {
-            var taskType = PickTaskType(random);
+            var taskType = PickTaskTypeForBox(random, flashCard.Box);
             tasks.Add(CreateTask(taskType, flashCard, flashCards, random));
         }
 
@@ -381,11 +415,25 @@ public sealed class LearningSessionService : ILearningSessionService
         }
     }
 
-    private static LearningTaskType PickTaskType(Random random)
-        => random.Next(3) switch
+    private static LearningTaskType PickTaskTypeForBox(Random random, int box)
+    {
+        if (!TaskTypeSharesByBox.TryGetValue(box, out var shares))
         {
-            0 => LearningTaskType.FreeText,
-            1 => LearningTaskType.MultipleChoice,
-            _ => LearningTaskType.Mapping
-        };
+            shares = TaskTypeSharesByBox[LearningConstants.MAX_BOX];
+        }
+
+        var freeTextPercent = shares[LearningTaskType.FreeText];
+        var multipleChoicePercent = shares[LearningTaskType.MultipleChoice];
+        var mappingPercent = shares[LearningTaskType.Mapping];
+        var total = freeTextPercent + multipleChoicePercent + mappingPercent;
+        if (total <= 0)
+            return LearningTaskType.FreeText;
+
+        var roll = random.Next(total);
+        if (roll < freeTextPercent)
+            return LearningTaskType.FreeText;
+        if (roll < freeTextPercent + multipleChoicePercent)
+            return LearningTaskType.MultipleChoice;
+        return LearningTaskType.Mapping;
+    }
 }
