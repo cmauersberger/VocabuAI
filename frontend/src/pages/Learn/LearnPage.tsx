@@ -65,6 +65,10 @@ export default function LearnPage({
   }>(null);
   const [isAdvancing, setIsAdvancing] = React.useState(false);
   const [correctionGuid, setCorrectionGuid] = React.useState<string | null>(null);
+  const [pendingAnswer, setPendingAnswer] = React.useState<{
+    task: LearningTask;
+    mappingAnswers?: MappingAnswerResult[];
+  } | null>(null);
   const [flashTone, setFlashTone] = React.useState<"correct" | "incorrect" | null>(
     null
   );
@@ -160,6 +164,7 @@ export default function LearnPage({
     setFeedback(null);
     setIsAdvancing(false);
     setCorrectionGuid(null);
+    setPendingAnswer(null);
     setFlashTone(null);
     flashOpacity.stopAnimation();
     flashOpacity.setValue(0);
@@ -203,7 +208,12 @@ export default function LearnPage({
     (isCorrect: boolean, mappingAnswers?: MappingAnswerResult[]) => {
       if (!currentTask) return;
 
-      void sendFlashcardAnswer(currentTask, isCorrect, mappingAnswers);
+      if (isCorrect) {
+        void sendFlashcardAnswer(currentTask, true, mappingAnswers);
+        setPendingAnswer(null);
+      } else {
+        setPendingAnswer({ task: currentTask, mappingAnswers });
+      }
       setFlashTone(isCorrect ? "correct" : "incorrect");
       flashOpacity.stopAnimation();
       flashOpacity.setValue(0.18);
@@ -289,10 +299,56 @@ export default function LearnPage({
     setTotalAnswers(0);
     setIncorrectAnswers(0);
     onSessionActiveChange?.(false);
-    onExitToOverview?.();
   };
 
   const continueAfterCorrection = () => {
+    if (pendingAnswer) {
+      void sendFlashcardAnswer(pendingAnswer.task, false, pendingAnswer.mappingAnswers);
+      setPendingAnswer(null);
+    }
+    setFeedback(null);
+    setIsAdvancing(false);
+    setCorrectionGuid(null);
+    setCurrentIndex((prev) => prev + 1);
+  };
+
+  const handleCheat = () => {
+    if (!pendingAnswer) return;
+    const guid = pendingAnswer.task.guid;
+    const nextTasks = removeLastTaskByGuid(tasks, guid);
+    const nextCompletedGuids = new Set(completedGuids);
+    nextCompletedGuids.add(guid);
+    const nextIncorrectAnswers = Math.max(0, incorrectAnswers - 1);
+
+    void sendFlashcardAnswer(pendingAnswer.task, true);
+    setPendingAnswer(null);
+    setTasks(nextTasks);
+    setCompletedGuids(nextCompletedGuids);
+    setIncorrectAnswers(nextIncorrectAnswers);
+
+    const completedTaskCount = nextTasks.filter((task) =>
+      nextCompletedGuids.has(task.guid)
+    ).length;
+
+    if (completedTaskCount >= nextTasks.length) {
+      const finishedAt = Date.now();
+      setSummary({
+        taskCount: completedTaskCount,
+        incorrectAnswers: nextIncorrectAnswers,
+        totalAnswers,
+        durationSeconds: startedAt
+          ? Math.max(0, Math.round((finishedAt - startedAt) / 1000))
+          : 0,
+        startedAt,
+        endedAt: finishedAt
+      });
+      resetSessionState();
+      setTotalAnswers(0);
+      setIncorrectAnswers(0);
+      onSessionActiveChange?.(false);
+      return;
+    }
+
     setFeedback(null);
     setIsAdvancing(false);
     setCorrectionGuid(null);
@@ -366,6 +422,7 @@ export default function LearnPage({
           disabled={isAdvancing}
           showCorrectAnswer={correctionGuid === currentTask.guid}
           onContinue={continueAfterCorrection}
+          onCheat={handleCheat}
         />
       ) : null}
 
@@ -389,6 +446,7 @@ type TaskRendererProps = {
   disabled: boolean;
   showCorrectAnswer: boolean;
   onContinue: () => void;
+  onCheat: () => void;
 };
 
 function TaskRenderer({
@@ -396,7 +454,8 @@ function TaskRenderer({
   onAnswer,
   disabled,
   showCorrectAnswer,
-  onContinue
+  onContinue,
+  onCheat
 }: TaskRendererProps) {
   switch (task.taskType) {
     case LearningTaskType.FreeText:
@@ -407,6 +466,7 @@ function TaskRenderer({
           disabled={disabled}
           showCorrectAnswer={showCorrectAnswer}
           onContinue={onContinue}
+          onCheat={onCheat}
         />
       );
     case LearningTaskType.MultipleChoice:
@@ -417,6 +477,7 @@ function TaskRenderer({
           disabled={disabled}
           showCorrectAnswer={showCorrectAnswer}
           onContinue={onContinue}
+          onCheat={onCheat}
         />
       );
     case LearningTaskType.Mapping:
@@ -427,6 +488,7 @@ function TaskRenderer({
           disabled={disabled}
           showCorrectAnswer={showCorrectAnswer}
           onContinue={onContinue}
+          onCheat={onCheat}
         />
       );
     default:
@@ -493,6 +555,7 @@ type FreeTextTaskProps = {
   disabled: boolean;
   showCorrectAnswer: boolean;
   onContinue: () => void;
+  onCheat: () => void;
 };
 
 function FreeTextTask({
@@ -500,7 +563,8 @@ function FreeTextTask({
   onAnswer,
   disabled,
   showCorrectAnswer,
-  onContinue
+  onContinue,
+  onCheat
 }: FreeTextTaskProps) {
   const [value, setValue] = React.useState("");
 
@@ -533,18 +597,16 @@ function FreeTextTask({
       <Text style={styles.questionLabel}>
         {getLanguageLabel(payload.question.language)}
       </Text>
-      <Text style={styles.questionText}>{payload.question.value}</Text>
+      <Text style={styles.questionTextCentered}>
+        {payload.question.value}
+      </Text>
       {showCorrectAnswer ? (
         <View style={styles.correctAnswerBlock}>
           <Text style={styles.incorrectLabel}>Incorrect</Text>
           <Text style={styles.correctAnswerText}>
             {correctAnswers.join(" / ")}
           </Text>
-          <Button
-            label="Continue"
-            onClick={onContinue}
-            style={styles.centeredButton}
-          />
+          <CorrectionActions onContinue={onContinue} onCheat={onCheat} />
         </View>
       ) : (
         <>
@@ -575,6 +637,7 @@ type MultipleChoiceTaskProps = {
   disabled: boolean;
   showCorrectAnswer: boolean;
   onContinue: () => void;
+  onCheat: () => void;
 };
 
 function MultipleChoiceTask({
@@ -582,7 +645,8 @@ function MultipleChoiceTask({
   onAnswer,
   disabled,
   showCorrectAnswer,
-  onContinue
+  onContinue,
+  onCheat
 }: MultipleChoiceTaskProps) {
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
@@ -613,11 +677,7 @@ function MultipleChoiceTask({
           <Text style={styles.correctAnswerText}>
             {correctOptions.join(" / ")}
           </Text>
-          <Button
-            label="Continue"
-            onClick={onContinue}
-            style={styles.centeredButton}
-          />
+          <CorrectionActions onContinue={onContinue} onCheat={onCheat} />
         </View>
       ) : (
         <>
@@ -660,6 +720,7 @@ type MappingTaskProps = {
   disabled: boolean;
   showCorrectAnswer: boolean;
   onContinue: () => void;
+  onCheat: () => void;
 };
 
 function MappingTask({
@@ -667,7 +728,8 @@ function MappingTask({
   onAnswer,
   disabled,
   showCorrectAnswer,
-  onContinue
+  onContinue,
+  onCheat
 }: MappingTaskProps) {
   const [selectedLeftKey, setSelectedLeftKey] = React.useState<string | null>(
     null
@@ -743,11 +805,7 @@ function MappingTask({
               </View>
             ))}
           </View>
-          <Button
-            label="Continue"
-            onClick={onContinue}
-            style={styles.centeredButton}
-          />
+          <CorrectionActions onContinue={onContinue} onCheat={onCheat} />
         </View>
       ) : (
         <>
@@ -846,6 +904,40 @@ function getLanguageLabel(language: LearningLanguage): string {
     default:
       return "Unknown";
   }
+}
+
+type CorrectionActionsProps = {
+  onContinue: () => void;
+  onCheat: () => void;
+};
+
+function CorrectionActions({ onContinue, onCheat }: CorrectionActionsProps) {
+  return (
+    <View style={styles.correctionActions}>
+      <Button
+        label="Cheat (count as correct)"
+        onClick={onCheat}
+        style={styles.secondaryButton}
+      />
+      <Button label="Continue" onClick={onContinue} />
+    </View>
+  );
+}
+
+function removeLastTaskByGuid(tasks: LearningTask[], guid: string): LearningTask[] {
+  let lastIndex = -1;
+  for (let i = tasks.length - 1; i >= 0; i -= 1) {
+    if (tasks[i].guid === guid) {
+      lastIndex = i;
+      break;
+    }
+  }
+  if (lastIndex <= 0) return tasks;
+  const firstIndex = tasks.findIndex((task) => task.guid === guid);
+  if (firstIndex === lastIndex) return tasks;
+  const copy = [...tasks];
+  copy.splice(lastIndex, 1);
+  return copy;
 }
 
 const styles = StyleSheet.create({
@@ -949,6 +1041,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600"
   },
+  questionTextCentered: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center"
+  },
   input: {
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.4)",
@@ -1018,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   mappingText: {
     color: "#FFFFFF",
-    fontSize: 14
+    fontSize: 16
   },
   mappingHint: {
     color: "#38BDF8",
@@ -1093,5 +1191,14 @@ const styles = StyleSheet.create({
   },
   centeredButton: {
     alignSelf: "center"
+  },
+  correctionActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "center"
+  },
+  secondaryButton: {
+    backgroundColor: "#334155"
   }
 });
