@@ -88,6 +88,17 @@ public static class FlashCardEndpoints
             })
             .WithTags("FlashCards")
             .WithName("GetFlashCards");
+
+        group.MapGet("/getFlashCardCountPerBox", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var counts = repository.GetCountPerBoxByUserId(userId);
+                return Results.Ok(counts);
+            })
+            .WithTags("FlashCards")
+            .WithName("GetFlashCardCountPerBox");
     }
 
     private static bool TryGetUserId(ClaimsPrincipal user, out int userId)

@@ -53,6 +53,9 @@ export default function LearnPage({
   const [status, setStatus] = React.useState<string | null>(null);
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
+  const [boxCounts, setBoxCounts] = React.useState<Record<string, number> | null>(
+    null
+  );
   const [feedback, setFeedback] = React.useState<null | {
     correct: boolean;
     message: string;
@@ -106,6 +109,32 @@ export default function LearnPage({
     },
     [apiBaseUrl, authToken]
   );
+
+  const loadBoxCounts = React.useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/flashcards/getFlashCardCountPerBox`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${authToken}`
+          }
+        }
+      );
+
+      if (!response.ok) return;
+      const payload = (await response.json()) as Record<string, number>;
+      setBoxCounts(payload);
+    } catch {
+      // Ignore box count errors to avoid blocking the learning screen.
+    }
+  }, [apiBaseUrl, authToken]);
+
+  React.useEffect(() => {
+    if (!session) {
+      void loadBoxCounts();
+    }
+  }, [loadBoxCounts, session]);
 
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
@@ -251,6 +280,7 @@ export default function LearnPage({
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Learning</Text>
+        {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
         {status ? <Text style={styles.status}>{status}</Text> : null}
         <Button label="Start learning" onClick={startSession} />
       </View>
@@ -261,6 +291,7 @@ export default function LearnPage({
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Session complete</Text>
+        {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
         <View style={styles.resultCard}>
           <Text style={styles.resultItem}>
             Tasks completed: {summary.taskCount}
@@ -290,6 +321,8 @@ export default function LearnPage({
           <Text style={styles.abortText}>Abort learning</Text>
         </Pressable>
       </View>
+
+      {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
 
       <View style={styles.sessionMeta}>
         <Text style={styles.metaText}>
@@ -356,6 +389,35 @@ function TaskRenderer({ task, onAnswer, disabled }: TaskRendererProps) {
     default:
       return null;
   }
+}
+
+type BoxOverviewProps = {
+  counts: Record<string, number>;
+};
+
+function BoxOverview({ counts }: BoxOverviewProps) {
+  const entries = Object.entries(counts).sort(
+    ([left], [right]) => Number(left) - Number(right)
+  );
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+  return (
+    <View style={styles.boxOverviewCard}>
+      <Text style={styles.boxOverviewTitle}>Boxes</Text>
+      <View style={styles.boxOverviewRow}>
+        {entries.map(([box, count]) => (
+          <View key={box} style={styles.boxOverviewItem}>
+            <Text style={styles.boxOverviewBox}>Box {box}</Text>
+            <Text style={styles.boxOverviewCount}>{count}</Text>
+          </View>
+        ))}
+        <View style={styles.boxOverviewItem}>
+          <Text style={styles.boxOverviewBox}>Total</Text>
+          <Text style={styles.boxOverviewCount}>{total}</Text>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 function getFlashCardIds(task: LearningTask): number[] {
@@ -664,6 +726,39 @@ const styles = StyleSheet.create({
   },
   status: {
     color: "#93C5FD"
+  },
+  boxOverviewCard: {
+    backgroundColor: "#0F172A",
+    borderRadius: 12,
+    padding: 12,
+    gap: 10
+  },
+  boxOverviewTitle: {
+    color: "#94A3B8",
+    fontSize: 12,
+    textTransform: "uppercase"
+  },
+  boxOverviewRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  boxOverviewItem: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.7)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 62
+  },
+  boxOverviewBox: {
+    color: "#93C5FD",
+    fontSize: 12
+  },
+  boxOverviewCount: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600"
   },
   sessionHeader: {
     gap: 8
