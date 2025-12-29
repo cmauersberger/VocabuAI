@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -61,6 +62,10 @@ export default function LearnPage({
     message: string;
   }>(null);
   const [isAdvancing, setIsAdvancing] = React.useState(false);
+  const [flashTone, setFlashTone] = React.useState<"correct" | "incorrect" | null>(
+    null
+  );
+  const flashOpacity = React.useRef(new Animated.Value(0)).current;
   const sendFlashcardAnswer = React.useCallback(
     async (
       task: LearningTask,
@@ -153,6 +158,9 @@ export default function LearnPage({
     setStartedAt(null);
     setFeedback(null);
     setIsAdvancing(false);
+    setFlashTone(null);
+    flashOpacity.stopAnimation();
+    flashOpacity.setValue(0);
   }, []);
 
   const startSession = async () => {
@@ -197,6 +205,16 @@ export default function LearnPage({
       if (!currentTask) return;
 
       void sendFlashcardAnswer(currentTask, isCorrect, mappingAnswers);
+      setFlashTone(isCorrect ? "correct" : "incorrect");
+      flashOpacity.stopAnimation();
+      flashOpacity.setValue(0.18);
+      Animated.timing(flashOpacity, {
+        toValue: 0,
+        duration: 900,
+        useNativeDriver: true
+      }).start(() => {
+        setFlashTone(null);
+      });
 
       const nextTasks = isCorrect ? tasks : [...tasks, currentTask];
       const nextCompletedGuids = new Set(completedGuids);
@@ -310,6 +328,16 @@ export default function LearnPage({
 
   return (
     <View style={styles.container}>
+      {flashTone ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.flashOverlay,
+            flashTone === "correct" ? styles.flashCorrect : styles.flashIncorrect,
+            { opacity: flashOpacity }
+          ]}
+        />
+      ) : null}
       <View style={styles.sessionHeader}>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { flex: progress }]} />
@@ -715,7 +743,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    gap: 16
+    gap: 16,
+    position: "relative"
   },
   title: {
     fontSize: 20,
@@ -895,6 +924,16 @@ const styles = StyleSheet.create({
   },
   incorrect: {
     color: "#F97316"
+  },
+  flashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.12
+  },
+  flashCorrect: {
+    backgroundColor: "#22C55E"
+  },
+  flashIncorrect: {
+    backgroundColor: "#EF4444"
   },
   resultCard: {
     backgroundColor: "#0F172A",
