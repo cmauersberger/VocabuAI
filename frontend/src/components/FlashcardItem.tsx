@@ -7,9 +7,40 @@ type Props = {
   onEdit?: () => void;
 };
 
+const formatLastLearned = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs <= 0) return "now";
+
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return `${weeks}w`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+
+  const years = Math.floor(days / 365);
+  return `${years}y`;
+};
+
 export default function FlashcardItem({ card, onEdit }: Props) {
   return (
     <View style={styles.row}>
+      <View style={styles.boxColumn}>
+        <Text style={styles.boxText}>#{card.box}</Text>
+      </View>
       <View style={styles.text}>
         <Text style={styles.meaning} numberOfLines={1}>
           {card.localLanguage}
@@ -21,6 +52,7 @@ export default function FlashcardItem({ card, onEdit }: Props) {
       <Text style={styles.arabic} numberOfLines={1}>
         {card.foreignLanguage}
       </Text>
+      <Text style={styles.lastLearned}>{formatLastLearned(card.lastAnsweredAt)}</Text>
       {onEdit ? (
         <Pressable
           accessibilityRole="button"
@@ -56,11 +88,26 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4
   },
+  boxColumn: {
+    minWidth: 36,
+    alignItems: "center"
+  },
+  boxText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#A5B4FC"
+  },
   arabic: {
     fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
     textAlign: "right"
+  },
+  lastLearned: {
+    minWidth: 40,
+    fontSize: 12,
+    color: "#CBD5F5",
+    textAlign: "center"
   },
   meaning: {
     fontSize: 15,

@@ -8,6 +8,8 @@ public sealed record FlashCardDto(
     string LocalLanguage,
     string? Synonyms,
     string? Annotation,
+    int Box,
+    DateTimeOffset? LastAnsweredAt,
     DateTimeOffset DateTimeCreated,
     DateTimeOffset DateTimeUpdated
 );

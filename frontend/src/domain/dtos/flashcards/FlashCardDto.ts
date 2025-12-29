@@ -5,6 +5,8 @@ export type FlashCardDto = {
   localLanguage: string;
   synonyms?: string | null;
   annotation?: string | null;
+  box: number;
+  lastAnsweredAt?: string | null;
   dateTimeCreated: string;
   dateTimeUpdated: string;
 };

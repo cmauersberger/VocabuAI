@@ -58,7 +58,7 @@ public static class FlashCardEndpoints
                 if (validationError is not null)
                     return Results.BadRequest(new { message = validationError });
 
-                var flashCard = repository.GetByIdAndUserId(id, userId);
+                var flashCard = repository.GetByIdWithLearningStateAndUserId(id, userId);
                 if (flashCard is null)
                     return Results.NotFound();
 
@@ -80,7 +80,7 @@ public static class FlashCardEndpoints
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
 
-                var items = repository.GetAllByUserId(userId)
+                var items = repository.GetAllWithLearningStateByUserId(userId)
                     .Select(ToDto)
                     .ToArray();
 
@@ -125,6 +125,8 @@ public static class FlashCardEndpoints
             entity.LocalLanguage,
             entity.Synonyms,
             entity.Annotation,
+            entity.LearningState?.Box ?? 1,
+            entity.LearningState?.LastAnsweredAt,
             entity.DateTimeCreated,
             entity.DateTimeUpdated
         );

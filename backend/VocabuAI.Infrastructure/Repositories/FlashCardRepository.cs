@@ -29,6 +29,11 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
     public FlashCardDb? GetByIdAndUserId(int id, int userId)
         => DbContext.FlashCards.FirstOrDefault(card => card.Id == id && card.UserId == userId);
 
+    public FlashCardDb? GetByIdWithLearningStateAndUserId(int id, int userId)
+        => DbContext.FlashCards
+            .Include(card => card.LearningState)
+            .FirstOrDefault(card => card.Id == id && card.UserId == userId);
+
     public Dictionary<int, int> GetCountPerBoxByUserId(int userId)
     {
         var counts = (from card in DbContext.FlashCards.AsNoTracking()
