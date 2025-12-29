@@ -62,6 +62,7 @@ export default function LearnPage({
     message: string;
   }>(null);
   const [isAdvancing, setIsAdvancing] = React.useState(false);
+  const [correctionGuid, setCorrectionGuid] = React.useState<string | null>(null);
   const [flashTone, setFlashTone] = React.useState<"correct" | "incorrect" | null>(
     null
   );
@@ -158,6 +159,7 @@ export default function LearnPage({
     setStartedAt(null);
     setFeedback(null);
     setIsAdvancing(false);
+    setCorrectionGuid(null);
     setFlashTone(null);
     flashOpacity.stopAnimation();
     flashOpacity.setValue(0);
@@ -253,17 +255,23 @@ export default function LearnPage({
         return;
       }
 
-      setFeedback({
-        correct: isCorrect,
-        message: isCorrect ? "Correct." : "Incorrect."
-      });
-      setIsAdvancing(true);
+      if (isCorrect) {
+        setFeedback({
+          correct: true,
+          message: "Correct."
+        });
+        setIsAdvancing(true);
 
-      setTimeout(() => {
+        setTimeout(() => {
+          setFeedback(null);
+          setIsAdvancing(false);
+          setCurrentIndex((prev) => prev + 1);
+        }, 700);
+      } else {
         setFeedback(null);
-        setIsAdvancing(false);
-        setCurrentIndex((prev) => prev + 1);
-      }, 700);
+        setCorrectionGuid(currentTask.guid);
+        setIsAdvancing(true);
+      }
     },
     [
       completedGuids,
@@ -285,6 +293,13 @@ export default function LearnPage({
     setIncorrectAnswers(0);
     onSessionActiveChange?.(false);
     onExitToOverview?.();
+  };
+
+  const continueAfterCorrection = () => {
+    setFeedback(null);
+    setIsAdvancing(false);
+    setCorrectionGuid(null);
+    setCurrentIndex((prev) => prev + 1);
   };
 
   const finishResult = () => {
@@ -363,6 +378,8 @@ export default function LearnPage({
           task={currentTask}
           onAnswer={recordAnswer}
           disabled={isAdvancing}
+          showCorrectAnswer={correctionGuid === currentTask.guid}
+          onContinue={continueAfterCorrection}
         />
       ) : null}
 
@@ -384,9 +401,17 @@ type TaskRendererProps = {
   task: LearningTask;
   onAnswer: (isCorrect: boolean, mappingAnswers?: MappingAnswerResult[]) => void;
   disabled: boolean;
+  showCorrectAnswer: boolean;
+  onContinue: () => void;
 };
 
-function TaskRenderer({ task, onAnswer, disabled }: TaskRendererProps) {
+function TaskRenderer({
+  task,
+  onAnswer,
+  disabled,
+  showCorrectAnswer,
+  onContinue
+}: TaskRendererProps) {
   switch (task.taskType) {
     case LearningTaskType.FreeText:
       return (
@@ -394,6 +419,8 @@ function TaskRenderer({ task, onAnswer, disabled }: TaskRendererProps) {
           payload={task.payload}
           onAnswer={onAnswer}
           disabled={disabled}
+          showCorrectAnswer={showCorrectAnswer}
+          onContinue={onContinue}
         />
       );
     case LearningTaskType.MultipleChoice:
@@ -402,6 +429,8 @@ function TaskRenderer({ task, onAnswer, disabled }: TaskRendererProps) {
           payload={task.payload}
           onAnswer={onAnswer}
           disabled={disabled}
+          showCorrectAnswer={showCorrectAnswer}
+          onContinue={onContinue}
         />
       );
     case LearningTaskType.Mapping:
@@ -410,6 +439,8 @@ function TaskRenderer({ task, onAnswer, disabled }: TaskRendererProps) {
           items={task.payload.items}
           onAnswer={onAnswer}
           disabled={disabled}
+          showCorrectAnswer={showCorrectAnswer}
+          onContinue={onContinue}
         />
       );
     default:
@@ -474,13 +505,21 @@ type FreeTextTaskProps = {
   payload: FreeTextTaskPayload;
   onAnswer: (isCorrect: boolean) => void;
   disabled: boolean;
+  showCorrectAnswer: boolean;
+  onContinue: () => void;
 };
 
-function FreeTextTask({ payload, onAnswer, disabled }: FreeTextTaskProps) {
+function FreeTextTask({
+  payload,
+  onAnswer,
+  disabled,
+  showCorrectAnswer,
+  onContinue
+}: FreeTextTaskProps) {
   const [value, setValue] = React.useState("");
 
   const checkAnswer = () => {
-    if (disabled) return;
+    if (disabled || showCorrectAnswer) return;
     const trimmed = value.trim();
     if (!trimmed) return;
 
@@ -495,23 +534,51 @@ function FreeTextTask({ payload, onAnswer, disabled }: FreeTextTaskProps) {
     setValue("");
   };
 
+  const correctAnswers = React.useMemo(() => {
+    const answers = payload.answers
+      .filter((answer) => answer.correct)
+      .map((answer) => answer.value.trim())
+      .filter(Boolean);
+    return Array.from(new Set(answers));
+  }, [payload.answers]);
+
   return (
     <View style={styles.card}>
       <Text style={styles.questionLabel}>
         {getLanguageLabel(payload.question.language)}
       </Text>
       <Text style={styles.questionText}>{payload.question.value}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={setValue}
-        placeholder="Type your answer"
-        placeholderTextColor="#64748B"
-        editable={!disabled}
-        onSubmitEditing={checkAnswer}
-        returnKeyType="done"
-      />
-      <Button label="Submit" onClick={checkAnswer} style={styles.centeredButton} />
+      {showCorrectAnswer ? (
+        <View style={styles.correctAnswerBlock}>
+          <Text style={styles.incorrectLabel}>Incorrect</Text>
+          <Text style={styles.correctAnswerText}>
+            {correctAnswers.join(" / ")}
+          </Text>
+          <Button
+            label="Continue"
+            onClick={onContinue}
+            style={styles.centeredButton}
+          />
+        </View>
+      ) : (
+        <>
+          <TextInput
+            style={styles.input}
+            value={value}
+            onChangeText={setValue}
+            placeholder="Type your answer"
+            placeholderTextColor="#64748B"
+            editable={!disabled}
+            onSubmitEditing={checkAnswer}
+            returnKeyType="done"
+          />
+          <Button
+            label="Submit"
+            onClick={checkAnswer}
+            style={styles.centeredButton}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -520,21 +587,33 @@ type MultipleChoiceTaskProps = {
   payload: MultipleChoiceTaskPayload;
   onAnswer: (isCorrect: boolean) => void;
   disabled: boolean;
+  showCorrectAnswer: boolean;
+  onContinue: () => void;
 };
 
 function MultipleChoiceTask({
   payload,
   onAnswer,
-  disabled
+  disabled,
+  showCorrectAnswer,
+  onContinue
 }: MultipleChoiceTaskProps) {
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
   const submit = () => {
-    if (disabled) return;
+    if (disabled || showCorrectAnswer) return;
     if (selectedIndex === null) return;
     const selected = payload.options[selectedIndex];
     onAnswer(Boolean(selected?.correct));
   };
+
+  const correctOptions = React.useMemo(() => {
+    const options = payload.options
+      .filter((option) => option.correct)
+      .map((option) => option.value.trim())
+      .filter(Boolean);
+    return Array.from(new Set(options));
+  }, [payload.options]);
 
   return (
     <View style={styles.card}>
@@ -542,33 +621,49 @@ function MultipleChoiceTask({
         {getLanguageLabel(payload.question.language)}
       </Text>
       <Text style={styles.questionText}>{payload.question.value}</Text>
-      {payload.selectionMode !== LearningSelectionMode.Single ? null : (
-        <View style={styles.optionList}>
-          {payload.options.map((option, index) => {
-            const selected = index === selectedIndex;
-            return (
-              <Pressable
-                key={`${option.value}-${index}`}
-                style={[
-                  styles.optionRow,
-                  selected ? styles.optionRowSelected : null
-                ]}
-                onPress={() => setSelectedIndex(index)}
-                disabled={disabled}
-              >
-                <View
-                  style={[
-                    styles.radio,
-                    selected ? styles.radioSelected : null
-                  ]}
-                />
-                <Text style={styles.optionText}>{option.value}</Text>
-              </Pressable>
-            );
-          })}
+      {showCorrectAnswer ? (
+        <View style={styles.correctAnswerBlock}>
+          <Text style={styles.incorrectLabel}>Incorrect</Text>
+          <Text style={styles.correctAnswerText}>
+            {correctOptions.join(" / ")}
+          </Text>
+          <Button
+            label="Continue"
+            onClick={onContinue}
+            style={styles.centeredButton}
+          />
         </View>
+      ) : (
+        <>
+          {payload.selectionMode !== LearningSelectionMode.Single ? null : (
+            <View style={styles.optionList}>
+              {payload.options.map((option, index) => {
+                const selected = index === selectedIndex;
+                return (
+                  <Pressable
+                    key={`${option.value}-${index}`}
+                    style={[
+                      styles.optionRow,
+                      selected ? styles.optionRowSelected : null
+                    ]}
+                    onPress={() => setSelectedIndex(index)}
+                    disabled={disabled}
+                  >
+                    <View
+                      style={[
+                        styles.radio,
+                        selected ? styles.radioSelected : null
+                      ]}
+                    />
+                    <Text style={styles.optionText}>{option.value}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <Button label="Submit" onClick={submit} style={styles.centeredButton} />
+        </>
       )}
-      <Button label="Submit" onClick={submit} style={styles.centeredButton} />
     </View>
   );
 }
@@ -577,9 +672,17 @@ type MappingTaskProps = {
   items: LearningMappingItem[];
   onAnswer: (isCorrect: boolean, mappingAnswers: MappingAnswerResult[]) => void;
   disabled: boolean;
+  showCorrectAnswer: boolean;
+  onContinue: () => void;
 };
 
-function MappingTask({ items, onAnswer, disabled }: MappingTaskProps) {
+function MappingTask({
+  items,
+  onAnswer,
+  disabled,
+  showCorrectAnswer,
+  onContinue
+}: MappingTaskProps) {
   const [selectedLeftKey, setSelectedLeftKey] = React.useState<string | null>(
     null
   );
@@ -615,13 +718,13 @@ function MappingTask({ items, onAnswer, disabled }: MappingTaskProps) {
   }, [items]);
 
   const assignPair = (rightKey: string) => {
-    if (!selectedLeftKey) return;
+    if (!selectedLeftKey || showCorrectAnswer) return;
     setPairs((prev) => ({ ...prev, [selectedLeftKey]: rightKey }));
     setSelectedLeftKey(null);
   };
 
   const submit = () => {
-    if (disabled) return;
+    if (disabled || showCorrectAnswer) return;
     const mappingAnswers = items.map((item, index) => {
       const leftKey = `left-${index}`;
       const rightKey = `right-${index}`;
@@ -638,55 +741,87 @@ function MappingTask({ items, onAnswer, disabled }: MappingTaskProps) {
   return (
     <View style={styles.card}>
       <Text style={styles.questionText}>Match the pairs</Text>
-      <View style={styles.mappingColumns}>
-        <View style={styles.mappingColumn}>
-          {leftItems.map((item) => {
-            const selected = item.key === selectedLeftKey;
-            const pairedRight = pairs[item.key];
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => setSelectedLeftKey(item.key)}
-                style={[
-                  styles.mappingItem,
-                  selected ? styles.mappingItemSelected : null
-                ]}
-                disabled={disabled}
-              >
-                <Text style={styles.mappingLabel}>
-                  {getLanguageLabel(item.text.language)}
-                </Text>
-                <Text style={styles.mappingText}>{item.text.value}</Text>
-                {pairedRight ? (
-                  <Text style={styles.mappingHint}>Paired</Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
+      {showCorrectAnswer ? (
+        <View style={styles.correctAnswerBlock}>
+          <Text style={styles.incorrectLabel}>Incorrect</Text>
+          <View style={styles.mappingCorrectList}>
+            {items.map((item, index) => (
+              <View key={`correct-${index}`} style={styles.mappingCorrectRow}>
+                <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
+                  <Text style={styles.mappingLabel}>
+                    {getLanguageLabel(item.left.language)}
+                  </Text>
+                  <Text style={styles.mappingText}>{item.left.value}</Text>
+                </View>
+                <Text style={styles.mappingCorrectConnector}>OK</Text>
+                <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
+                  <Text style={styles.mappingLabel}>
+                    {getLanguageLabel(item.right.language)}
+                  </Text>
+                  <Text style={styles.mappingText}>{item.right.value}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+          <Button
+            label="Continue"
+            onClick={onContinue}
+            style={styles.centeredButton}
+          />
         </View>
-        <View style={styles.mappingColumn}>
-          {rightItems.map((item) => {
-            const isTaken = Object.values(pairs).includes(item.key);
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => assignPair(item.key)}
-                style={[
-                  styles.mappingItem,
-                  isTaken ? styles.mappingItemDisabled : null
-                ]}
-                disabled={disabled || isTaken || !selectedLeftKey}
-              >
-                <Text style={styles.mappingLabel}>
-                  {getLanguageLabel(item.text.language)}
-                </Text>
-                <Text style={styles.mappingText}>{item.text.value}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-      <Button label="Submit" onClick={submit} style={styles.centeredButton} />
+      ) : (
+        <>
+          <View style={styles.mappingColumns}>
+            <View style={styles.mappingColumn}>
+              {leftItems.map((item) => {
+                const selected = item.key === selectedLeftKey;
+                const pairedRight = pairs[item.key];
+                return (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => setSelectedLeftKey(item.key)}
+                    style={[
+                      styles.mappingItem,
+                      selected ? styles.mappingItemSelected : null
+                    ]}
+                    disabled={disabled}
+                  >
+                    <Text style={styles.mappingLabel}>
+                      {getLanguageLabel(item.text.language)}
+                    </Text>
+                    <Text style={styles.mappingText}>{item.text.value}</Text>
+                    {pairedRight ? (
+                      <Text style={styles.mappingHint}>Paired</Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.mappingColumn}>
+              {rightItems.map((item) => {
+                const isTaken = Object.values(pairs).includes(item.key);
+                return (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => assignPair(item.key)}
+                    style={[
+                      styles.mappingItem,
+                      isTaken ? styles.mappingItemDisabled : null
+                    ]}
+                    disabled={disabled || isTaken || !selectedLeftKey}
+                  >
+                    <Text style={styles.mappingLabel}>
+                      {getLanguageLabel(item.text.language)}
+                    </Text>
+                    <Text style={styles.mappingText}>{item.text.value}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          <Button label="Submit" onClick={submit} style={styles.centeredButton} />
+        </>
+      )}
     </View>
   );
 }
@@ -914,6 +1049,42 @@ const styles = StyleSheet.create({
   mappingHint: {
     color: "#38BDF8",
     fontSize: 12
+  },
+  incorrectLabel: {
+    color: "#F97316",
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1
+  },
+  correctAnswerBlock: {
+    alignItems: "center",
+    gap: 12
+  },
+  correctAnswerText: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center"
+  },
+  mappingCorrectList: {
+    gap: 10,
+    width: "100%"
+  },
+  mappingCorrectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  mappingCorrectItem: {
+    borderColor: "#22C55E",
+    backgroundColor: "rgba(34, 197, 94, 0.15)"
+  },
+  mappingCorrectConnector: {
+    color: "#22C55E",
+    fontSize: 18,
+    fontWeight: "700"
   },
   feedback: {
     fontSize: 15,
