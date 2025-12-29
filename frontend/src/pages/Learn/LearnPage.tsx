@@ -302,41 +302,30 @@ export default function LearnPage({
     setCurrentIndex((prev) => prev + 1);
   };
 
-  const finishResult = () => {
-    setSummary(null);
-    setTotalAnswers(0);
-    setIncorrectAnswers(0);
-    onExitToOverview?.();
-  };
-
-  if (!session && !summary) {
+  if (!session) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Learning</Text>
         {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
         {status ? <Text style={styles.status}>{status}</Text> : null}
-        <Button label="Start learning" onClick={startSession} style={styles.centeredButton} />
-      </View>
-    );
-  }
-
-  if (summary) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Session complete</Text>
-        {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
-        <View style={styles.resultCard}>
-          <Text style={styles.resultItem}>
-            Tasks completed: {summary.taskCount}
-          </Text>
-          <Text style={styles.resultItem}>
-            Incorrect answers: {summary.incorrectAnswers}
-          </Text>
-          <Text style={styles.resultItem}>
-            Total time: {summary.durationSeconds}s
-          </Text>
-        </View>
-        <Button label="Back to overview" onClick={finishResult} style={styles.centeredButton} />
+        <Button
+          label="Start learning"
+          onClick={startSession}
+          style={styles.centeredButton}
+        />
+        {summary ? (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultItem}>
+              Tasks completed: {summary.taskCount}
+            </Text>
+            <Text style={styles.resultItem}>
+              Incorrect answers: {summary.incorrectAnswers}
+            </Text>
+            <Text style={styles.resultItem}>
+              Total time: {summary.durationSeconds}s
+            </Text>
+          </View>
+        ) : null}
       </View>
     );
   }
