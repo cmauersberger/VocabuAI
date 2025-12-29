@@ -75,6 +75,8 @@ public static class LearningSessionEndpoints
                 {
                     learningState = CreateInitialLearningState(flashCard.Id);
                     learningStateRepository.Add(learningState);
+                    // we need to save here to set the CreatedAt/UpdatedAt fields for the new entity
+                    learningStateRepository.SaveChanges();
                 }
 
                 progressService.ApplyAnswer(learningState, request.LearningTaskType, request.IsCorrect);

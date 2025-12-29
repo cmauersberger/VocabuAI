@@ -113,7 +113,7 @@ public sealed class FlashCardLearningProgressService
         int CurrentBox,
         int RequiredProgressPoints,
         IReadOnlyDictionary<LearningTaskType, int> MinimumCorrectCountsByTaskType,
-        TimeSpan? MinimumElapsedSinceCreated)
+        TimeSpan MinimumElapsedSinceCreated)
     {
         public bool IsSatisfiedBy(FlashCardLearningStateDb state)
         {
@@ -141,15 +141,12 @@ public sealed class FlashCardLearningProgressService
 
         private bool MeetsMinimumAge(FlashCardLearningStateDb state)
         {
-            var createdAt = state.DateTimeCreated;
+            var firstLearnedAt = state.DateTimeCreated;
 
-            if (MinimumElapsedSinceCreated.HasValue)
+            var minEligibleAt = firstLearnedAt.Add(MinimumElapsedSinceCreated);
+            if (DateTimeOffset.UtcNow < minEligibleAt)
             {
-                var minEligibleAt = createdAt.Add(MinimumElapsedSinceCreated.Value);
-                if (DateTimeOffset.UtcNow < minEligibleAt)
-                {
-                    return false;
-                }
+                return false;
             }
 
             return true;
