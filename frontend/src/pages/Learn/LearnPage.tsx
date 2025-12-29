@@ -748,16 +748,10 @@ function MappingTask({
             {items.map((item, index) => (
               <View key={`correct-${index}`} style={styles.mappingCorrectRow}>
                 <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
-                  <Text style={styles.mappingLabel}>
-                    {getLanguageLabel(item.left.language)}
-                  </Text>
                   <Text style={styles.mappingText}>{item.left.value}</Text>
                 </View>
-                <Text style={styles.mappingCorrectConnector}>OK</Text>
+                <View style={styles.mappingCorrectLine} />
                 <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
-                  <Text style={styles.mappingLabel}>
-                    {getLanguageLabel(item.right.language)}
-                  </Text>
                   <Text style={styles.mappingText}>{item.right.value}</Text>
                 </View>
               </View>
@@ -786,9 +780,6 @@ function MappingTask({
                     ]}
                     disabled={disabled}
                   >
-                    <Text style={styles.mappingLabel}>
-                      {getLanguageLabel(item.text.language)}
-                    </Text>
                     <Text style={styles.mappingText}>{item.text.value}</Text>
                     {pairedRight ? (
                       <Text style={styles.mappingHint}>Paired</Text>
@@ -810,9 +801,6 @@ function MappingTask({
                     ]}
                     disabled={disabled || isTaken || !selectedLeftKey}
                   >
-                    <Text style={styles.mappingLabel}>
-                      {getLanguageLabel(item.text.language)}
-                    </Text>
                     <Text style={styles.mappingText}>{item.text.value}</Text>
                   </Pressable>
                 );
@@ -1081,10 +1069,11 @@ const styles = StyleSheet.create({
     borderColor: "#22C55E",
     backgroundColor: "rgba(34, 197, 94, 0.15)"
   },
-  mappingCorrectConnector: {
-    color: "#22C55E",
-    fontSize: 18,
-    fontWeight: "700"
+  mappingCorrectLine: {
+    height: 2,
+    backgroundColor: "#22C55E",
+    flex: 1,
+    alignSelf: "center"
   },
   feedback: {
     fontSize: 15,
