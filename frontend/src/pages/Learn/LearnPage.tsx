@@ -282,7 +282,7 @@ export default function LearnPage({
         <Text style={styles.title}>Learning</Text>
         {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
         {status ? <Text style={styles.status}>{status}</Text> : null}
-        <Button label="Start learning" onClick={startSession} />
+        <Button label="Start learning" onClick={startSession} style={styles.centeredButton} />
       </View>
     );
   }
@@ -303,7 +303,7 @@ export default function LearnPage({
             Total time: {summary.durationSeconds}s
           </Text>
         </View>
-        <Button label="Back to overview" onClick={finishResult} />
+        <Button label="Back to overview" onClick={finishResult} style={styles.centeredButton} />
       </View>
     );
   }
@@ -321,8 +321,6 @@ export default function LearnPage({
           <Text style={styles.abortText}>Abort learning</Text>
         </Pressable>
       </View>
-
-      {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
 
       <View style={styles.sessionMeta}>
         <Text style={styles.metaText}>
@@ -403,7 +401,6 @@ function BoxOverview({ counts }: BoxOverviewProps) {
 
   return (
     <View style={styles.boxOverviewCard}>
-      <Text style={styles.boxOverviewTitle}>Boxes</Text>
       <View style={styles.boxOverviewRow}>
         {entries.map(([box, count]) => (
           <View key={box} style={styles.boxOverviewItem}>
@@ -411,6 +408,7 @@ function BoxOverview({ counts }: BoxOverviewProps) {
             <Text style={styles.boxOverviewCount}>{count}</Text>
           </View>
         ))}
+        <View style={styles.boxOverviewSeparator} />
         <View style={styles.boxOverviewItem}>
           <Text style={styles.boxOverviewBox}>Total</Text>
           <Text style={styles.boxOverviewCount}>{total}</Text>
@@ -485,7 +483,7 @@ function FreeTextTask({ payload, onAnswer, disabled }: FreeTextTaskProps) {
         onSubmitEditing={checkAnswer}
         returnKeyType="done"
       />
-      <Button label="Submit" onClick={checkAnswer} />
+      <Button label="Submit" onClick={checkAnswer} style={styles.centeredButton} />
     </View>
   );
 }
@@ -542,7 +540,7 @@ function MultipleChoiceTask({
           })}
         </View>
       )}
-      <Button label="Submit" onClick={submit} />
+      <Button label="Submit" onClick={submit} style={styles.centeredButton} />
     </View>
   );
 }
@@ -660,7 +658,7 @@ function MappingTask({ items, onAnswer, disabled }: MappingTaskProps) {
           })}
         </View>
       </View>
-      <Button label="Submit" onClick={submit} />
+      <Button label="Submit" onClick={submit} style={styles.centeredButton} />
     </View>
   );
 }
@@ -730,35 +728,43 @@ const styles = StyleSheet.create({
   boxOverviewCard: {
     backgroundColor: "#0F172A",
     borderRadius: 12,
-    padding: 12,
-    gap: 10
+    padding: 8,
+    gap: 6,
+    alignSelf: "center"
   },
   boxOverviewTitle: {
     color: "#94A3B8",
-    fontSize: 12,
+    fontSize: 11,
     textTransform: "uppercase"
   },
   boxOverviewRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8
+    flexWrap: "nowrap",
+    justifyContent: "center",
+    gap: 4
   },
   boxOverviewItem: {
     alignItems: "center",
     backgroundColor: "rgba(15, 23, 42, 0.7)",
     borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    minWidth: 62
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    minWidth: 48
   },
   boxOverviewBox: {
     color: "#93C5FD",
-    fontSize: 12
+    fontSize: 11
   },
   boxOverviewCount: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600"
+  },
+  boxOverviewSeparator: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(148, 163, 184, 0.4)",
+    alignSelf: "center"
   },
   sessionHeader: {
     gap: 8
@@ -899,5 +905,8 @@ const styles = StyleSheet.create({
   resultItem: {
     color: "#E2E8F0",
     fontSize: 15
+  },
+  centeredButton: {
+    alignSelf: "center"
   }
 });
