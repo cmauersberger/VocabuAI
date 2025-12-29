@@ -53,6 +53,7 @@ export default function FlashcardItem({ card, onEdit }: Props) {
         {card.foreignLanguage}
       </Text>
       <Text style={styles.lastLearned}>{formatLastLearned(card.lastAnsweredAt)}</Text>
+      <Text style={styles.createdAt}>{formatLastLearned(card.dateTimeCreated)}</Text>
       {onEdit ? (
         <Pressable
           accessibilityRole="button"
@@ -106,6 +107,12 @@ const styles = StyleSheet.create({
   },
   lastLearned: {
     minWidth: 40,
+    fontSize: 12,
+    color: "#CBD5F5",
+    textAlign: "center"
+  },
+  createdAt: {
+    minWidth: 50,
     fontSize: 12,
     color: "#CBD5F5",
     textAlign: "center"

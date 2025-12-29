@@ -11,7 +11,12 @@ type Props = {
   authToken: string;
 };
 
-type SortKey = "box" | "localLanguage" | "foreignLanguage" | "lastAnsweredAt";
+type SortKey =
+  | "box"
+  | "localLanguage"
+  | "foreignLanguage"
+  | "lastAnsweredAt"
+  | "dateTimeCreated";
 type SortDirection = "asc" | "desc";
 type SortState = { key: SortKey; direction: SortDirection } | null;
 
@@ -150,6 +155,15 @@ export default function EditPage({ authToken }: Props) {
           else result = aTime - bTime;
           break;
         }
+        case "dateTimeCreated": {
+          const aTime = getTime(a.dateTimeCreated);
+          const bTime = getTime(b.dateTimeCreated);
+          if (aTime === null && bTime === null) result = 0;
+          else if (aTime === null) result = 1;
+          else if (bTime === null) result = -1;
+          else result = aTime - bTime;
+          break;
+        }
         default:
           result = 0;
       }
@@ -224,6 +238,15 @@ export default function EditPage({ authToken }: Props) {
               Last {getCaret("lastAnsweredAt") ?? ""}
             </Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSort("dateTimeCreated")}
+            style={styles.headerCreated}
+          >
+            <Text style={[styles.headerText, styles.headerCenter]}>
+              Created {getCaret("dateTimeCreated") ?? ""}
+            </Text>
+          </Pressable>
           <View style={styles.headerEditSpacer} />
         </View>
         {cards.length === 0 ? (
@@ -294,6 +317,9 @@ const styles = StyleSheet.create({
   },
   headerLastLearned: {
     minWidth: 40
+  },
+  headerCreated: {
+    minWidth: 50
   },
   headerRight: {
     textAlign: "right"
