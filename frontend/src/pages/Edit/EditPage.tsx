@@ -11,6 +11,8 @@ type Props = {
   authToken: string;
 };
 
+const MAX_BOX = 5;
+
 type SortKey =
   | "box"
   | "localLanguage"
@@ -28,6 +30,8 @@ export default function EditPage({ authToken }: Props) {
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [status, setStatus] = React.useState<string | null>(null);
   const [sortState, setSortState] = React.useState<SortState>(null);
+  const [boxFilter, setBoxFilter] = React.useState<"all" | number>("all");
+  const [isFilterOpen, setIsFilterOpen] = React.useState(false);
 
   const resetForm = () => {
     setEditingId(null);
@@ -119,9 +123,14 @@ export default function EditPage({ authToken }: Props) {
     });
   };
 
+  const filteredCards = React.useMemo(() => {
+    if (boxFilter === "all") return cards;
+    return cards.filter((card) => card.box === boxFilter);
+  }, [boxFilter, cards]);
+
   const sortedCards = React.useMemo(() => {
-    if (!sortState) return cards;
-    const sorted = [...cards];
+    if (!sortState) return filteredCards;
+    const sorted = [...filteredCards];
 
     const directionFactor = sortState.direction === "asc" ? 1 : -1;
     const getTime = (value?: string | null) => {
@@ -176,7 +185,9 @@ export default function EditPage({ authToken }: Props) {
     });
 
     return sorted;
-  }, [cards, sortState]);
+  }, [filteredCards, sortState]);
+
+  const displayCards = sortState ? sortedCards : filteredCards;
 
   const getCaret = (key: SortKey) => {
     if (!sortState || sortState.key !== key) return null;
@@ -197,7 +208,52 @@ export default function EditPage({ authToken }: Props) {
         />
       ) : null}
 
-      <Text style={styles.sectionTitle}>Flashcards</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Flashcards</Text>
+        <View style={styles.filterContainer}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setIsFilterOpen((prev) => !prev)}
+            style={({ pressed }) => [
+              styles.filterButton,
+              pressed ? styles.filterButtonPressed : null
+            ]}
+          >
+            <Text style={styles.filterButtonText}>
+              Box: {boxFilter === "all" ? "All" : `#${boxFilter}`} v
+            </Text>
+          </Pressable>
+          {isFilterOpen ? (
+            <View style={styles.filterMenu}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setBoxFilter("all");
+                  setIsFilterOpen(false);
+                }}
+                style={styles.filterOption}
+              >
+                <Text style={styles.filterOptionText}>All boxes</Text>
+              </Pressable>
+              {Array.from({ length: MAX_BOX }, (_, index) => index + 1).map(
+                (box) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={box}
+                    onPress={() => {
+                      setBoxFilter(box);
+                      setIsFilterOpen(false);
+                    }}
+                    style={styles.filterOption}
+                  >
+                    <Text style={styles.filterOptionText}>Box #{box}</Text>
+                  </Pressable>
+                )
+              )}
+            </View>
+          ) : null}
+        </View>
+      </View>
 
       <ScrollView contentContainerStyle={styles.list}>
         {status ? <Text style={styles.status}>{status}</Text> : null}
@@ -235,7 +291,7 @@ export default function EditPage({ authToken }: Props) {
             style={styles.headerLastLearned}
           >
             <Text style={[styles.headerText, styles.headerCenter]}>
-              Last {getCaret("lastAnsweredAt") ?? ""}
+              Learned {getCaret("lastAnsweredAt") ?? ""}
             </Text>
           </Pressable>
           <Pressable
@@ -249,10 +305,10 @@ export default function EditPage({ authToken }: Props) {
           </Pressable>
           <View style={styles.headerEditSpacer} />
         </View>
-        {cards.length === 0 ? (
+        {displayCards.length === 0 ? (
           <Text style={styles.empty}>No flashcards yet.</Text>
         ) : (
-          sortedCards.map((card) => (
+          displayCards.map((card) => (
             <FlashcardItem
               key={card.id}
               card={card}
@@ -264,6 +320,14 @@ export default function EditPage({ authToken }: Props) {
           ))
         )}
       </ScrollView>
+
+      {isFilterOpen ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setIsFilterOpen(false)}
+          style={styles.filterBackdrop}
+        />
+      ) : null}
     </View>
   );
 }
@@ -272,21 +336,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    gap: 8
+    gap: 8,
+    position: "relative"
   },
   topRow: {
     flexDirection: "row",
-    justifyContent: "flex-start"
+    justifyContent: "flex-start",
+    alignItems: "center",
+    gap: 12
+  },
+  sectionHeader: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    position: "relative",
+    zIndex: 20
   },
   sectionTitle: {
-    marginTop: 12,
     fontSize: 14,
     fontWeight: "700",
     color: "#FFFFFF"
   },
   list: {
     paddingVertical: 8,
-    gap: 10
+    gap: 10,
+    zIndex: 1
   },
   headerRow: {
     flexDirection: "row",
@@ -330,10 +406,57 @@ const styles = StyleSheet.create({
   headerEditSpacer: {
     width: 28
   },
+  filterContainer: {
+    alignItems: "flex-end",
+    position: "relative",
+    zIndex: 30
+  },
+  filterBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5
+  },
+  filterButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    backgroundColor: "rgba(15, 23, 42, 0.6)"
+  },
+  filterButtonPressed: {
+    opacity: 0.9
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#E5E7EB"
+  },
+  filterMenu: {
+    position: "absolute",
+    top: 36,
+    right: 0,
+    zIndex: 40,
+    elevation: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    minWidth: 140
+  },
+  filterOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 12
+  },
+  filterOptionText: {
+    fontSize: 13,
+    color: "#E5E7EB"
+  },
   status: {
     color: "#93C5FD"
   },
   empty: {
-    color: "#94A3B8"
+    color: "#94A3B8",
+    textAlign: "center"
   }
 });
