@@ -1,7 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
-import Button from "./Button";
 
 type Props = {
   card: FlashCardDto;
@@ -12,14 +11,28 @@ export default function FlashcardItem({ card, onEdit }: Props) {
   return (
     <View style={styles.row}>
       <View style={styles.text}>
-        <Text style={styles.arabic}>{card.foreignLanguage}</Text>
-        <Text style={styles.meaning}>{card.localLanguage}</Text>
+        <Text style={styles.meaning} numberOfLines={1}>
+          {card.localLanguage}
+        </Text>
         {card.synonyms ? (
-          <Text style={styles.synonyms}>Synonyms: {card.synonyms}</Text>
+          <Text style={styles.synonyms}>{card.synonyms}</Text>
         ) : null}
       </View>
+      <Text style={styles.arabic} numberOfLines={1}>
+        {card.foreignLanguage}
+      </Text>
       {onEdit ? (
-        <Button label="Edit" onClick={onEdit} style={styles.editButton} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit flashcard"
+          onPress={onEdit}
+          style={({ pressed }) => [
+            styles.editButton,
+            pressed ? styles.editButtonPressed : null
+          ]}
+        >
+          <Text style={styles.editButtonLabel}>✎</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -28,9 +41,9 @@ export default function FlashcardItem({ card, onEdit }: Props) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
-    padding: 12,
+    padding: 10,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.25)",
@@ -44,19 +57,34 @@ const styles = StyleSheet.create({
     gap: 4
   },
   arabic: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#FFFFFF"
+    color: "#FFFFFF",
+    textAlign: "right"
   },
   meaning: {
-    fontSize: 14,
-    color: "#E5E7EB"
+    fontSize: 15,
+    color: "#E5E7EB",
+    flex: 1
   },
   synonyms: {
     fontSize: 12,
     color: "#94A3B8"
   },
   editButton: {
+    minWidth: 28,
+    height: 24,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "rgba(199, 210, 254, 0.14)"
+  },
+  editButtonPressed: {
+    opacity: 0.9
+  },
+  editButtonLabel: {
+    color: "#E5E7EB",
+    fontSize: 14,
+    fontWeight: "600"
   }
 });
