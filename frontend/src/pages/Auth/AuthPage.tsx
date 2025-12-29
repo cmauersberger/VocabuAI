@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Button from "../../components/Button";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { decodeJwtPayload } from "../../infrastructure/jwt";
@@ -146,6 +146,14 @@ export default function AuthPage({ onAuthenticated }: Props) {
     }
   };
 
+  // INTERNAL ONLY: this debug helper must never ship to production.
+  const handleInternalFill = () => {
+    setMode("login");
+    setEmail("c.mauersberger@googlemail.com");
+    setPassword("12345678");
+    setStatus(null);
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.titleRow}>
@@ -205,6 +213,10 @@ export default function AuthPage({ onAuthenticated }: Props) {
           label={mode === "login" ? "Sign In" : "Create User"}
           onClick={mode === "login" ? handleLogin : handleSignup}
         />
+
+        {Platform.OS === "android" ? (
+          <Button label="INTERNAL ONLY" onClick={handleInternalFill} />
+        ) : null}
 
         <Text
           style={styles.link}
