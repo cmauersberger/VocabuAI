@@ -1,10 +1,13 @@
 import React from "react";
 import {
   Animated,
+  LayoutAnimation,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View
 } from "react-native";
 import Button from "../../components/Button";
@@ -734,7 +737,12 @@ function MappingTask({
   const [selectedLeftKey, setSelectedLeftKey] = React.useState<string | null>(
     null
   );
-  const [pairs, setPairs] = React.useState<Record<string, string>>({});
+  const [selectedRightKey, setSelectedRightKey] = React.useState<string | null>(
+    null
+  );
+  const [pairs, setPairs] = React.useState<
+    { leftKey: string; rightKey: string }[]
+  >([]);
   const [leftItems, setLeftItems] = React.useState<
     { key: string; text: LearningMappingItem["left"] }[]
   >([]);
@@ -742,13 +750,11 @@ function MappingTask({
     { key: string; text: LearningMappingItem["right"] }[]
   >([]);
 
-  const correctPairs = React.useMemo(() => {
-    const map: Record<string, string> = {};
-    items.forEach((item, index) => {
-      map[`left-${index}`] = `right-${index}`;
-    });
-    return map;
-  }, [items]);
+  React.useEffect(() => {
+    if (Platform.OS !== "android") return;
+    if (!UIManager.setLayoutAnimationEnabledExperimental) return;
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }, []);
 
   React.useEffect(() => {
     const left = items.map((item, index) => ({
@@ -761,14 +767,116 @@ function MappingTask({
     }));
     setLeftItems(shuffle(left));
     setRightItems(shuffle(right));
-    setPairs({});
+    setPairs([]);
     setSelectedLeftKey(null);
+    setSelectedRightKey(null);
   }, [items]);
 
-  const assignPair = (rightKey: string) => {
-    if (!selectedLeftKey || showCorrectAnswer) return;
-    setPairs((prev) => ({ ...prev, [selectedLeftKey]: rightKey }));
-    setSelectedLeftKey(null);
+  const pairsByLeftKey = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    pairs.forEach((pair) => {
+      map[pair.leftKey] = pair.rightKey;
+    });
+    return map;
+  }, [pairs]);
+
+  const pairedLeftKeys = React.useMemo(
+    () => new Set(pairs.map((pair) => pair.leftKey)),
+    [pairs]
+  );
+
+  const pairedRightKeys = React.useMemo(
+    () => new Set(pairs.map((pair) => pair.rightKey)),
+    [pairs]
+  );
+
+  const leftByKey = React.useMemo(() => {
+    const map: Record<string, LearningMappingItem["left"]> = {};
+    leftItems.forEach((item) => {
+      map[item.key] = item.text;
+    });
+    return map;
+  }, [leftItems]);
+
+  const rightByKey = React.useMemo(() => {
+    const map: Record<string, LearningMappingItem["right"]> = {};
+    rightItems.forEach((item) => {
+      map[item.key] = item.text;
+    });
+    return map;
+  }, [rightItems]);
+
+  const unpairedLeftItems = React.useMemo(
+    () => leftItems.filter((item) => !pairedLeftKeys.has(item.key)),
+    [leftItems, pairedLeftKeys]
+  );
+
+  const unpairedRightItems = React.useMemo(
+    () => rightItems.filter((item) => !pairedRightKeys.has(item.key)),
+    [rightItems, pairedRightKeys]
+  );
+
+  const configurePairAnimation = React.useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, []);
+
+  const addPair = React.useCallback(
+    (leftKey: string, rightKey: string) => {
+      if (showCorrectAnswer) return;
+      if (pairedLeftKeys.has(leftKey) || pairedRightKeys.has(rightKey)) return;
+      configurePairAnimation();
+      setPairs((prev) => [...prev, { leftKey, rightKey }]);
+      setSelectedLeftKey(null);
+      setSelectedRightKey(null);
+    },
+    [
+      configurePairAnimation,
+      pairedLeftKeys,
+      pairedRightKeys,
+      showCorrectAnswer
+    ]
+  );
+
+  const handleLeftPress = (leftKey: string) => {
+    if (disabled || showCorrectAnswer) return;
+    if (pairedLeftKeys.has(leftKey)) return;
+    if (selectedLeftKey === leftKey) {
+      setSelectedLeftKey(null);
+      return;
+    }
+    if (selectedRightKey && !pairedRightKeys.has(selectedRightKey)) {
+      addPair(leftKey, selectedRightKey);
+      return;
+    }
+    setSelectedLeftKey(leftKey);
+  };
+
+  const handleRightPress = (rightKey: string) => {
+    if (disabled || showCorrectAnswer) return;
+    if (pairedRightKeys.has(rightKey)) return;
+    if (selectedRightKey === rightKey) {
+      setSelectedRightKey(null);
+      return;
+    }
+    if (selectedLeftKey && !pairedLeftKeys.has(selectedLeftKey)) {
+      addPair(selectedLeftKey, rightKey);
+      return;
+    }
+    setSelectedRightKey(rightKey);
+  };
+
+  const unpair = (leftKey: string, rightKey: string) => {
+    if (disabled || showCorrectAnswer) return;
+    configurePairAnimation();
+    setPairs((prev) =>
+      prev.filter((pair) => !(pair.leftKey === leftKey && pair.rightKey === rightKey))
+    );
+    if (selectedLeftKey === leftKey) {
+      setSelectedLeftKey(null);
+    }
+    if (selectedRightKey === rightKey) {
+      setSelectedRightKey(null);
+    }
   };
 
   const submit = () => {
@@ -778,7 +886,7 @@ function MappingTask({
       const rightKey = `right-${index}`;
       return {
         flashCardId: item.flashCardId,
-        isCorrect: pairs[leftKey] === rightKey
+        isCorrect: pairsByLeftKey[leftKey] === rightKey
       };
     });
     const isCorrect = mappingAnswers.every((answer) => answer.isCorrect);
@@ -786,8 +894,10 @@ function MappingTask({
     onAnswer(isCorrect, mappingAnswers);
   };
 
+  const allPaired = pairs.length === items.length;
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, styles.mappingCard]}>
       <Text style={styles.questionText}>Match the pairs</Text>
       {showCorrectAnswer ? (
         <View style={styles.correctAnswerBlock}>
@@ -809,49 +919,89 @@ function MappingTask({
         </View>
       ) : (
         <>
-          <View style={styles.mappingColumns}>
-            <View style={styles.mappingColumn}>
-              {leftItems.map((item) => {
-                const selected = item.key === selectedLeftKey;
-                const pairedRight = pairs[item.key];
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => setSelectedLeftKey(item.key)}
-                    style={[
-                      styles.mappingItem,
-                      selected ? styles.mappingItemSelected : null
-                    ]}
-                    disabled={disabled}
-                  >
-                    <Text style={styles.mappingText}>{item.text.value}</Text>
-                    {pairedRight ? (
-                      <Text style={styles.mappingHint}>Paired</Text>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={styles.mappingColumn}>
-              {rightItems.map((item) => {
-                const isTaken = Object.values(pairs).includes(item.key);
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => assignPair(item.key)}
-                    style={[
-                      styles.mappingItem,
-                      isTaken ? styles.mappingItemDisabled : null
-                    ]}
-                    disabled={disabled || isTaken || !selectedLeftKey}
-                  >
-                    <Text style={styles.mappingText}>{item.text.value}</Text>
-                  </Pressable>
-                );
-              })}
+          <View style={styles.mappingSection}>
+            <Text style={styles.mappingSectionLabel}>Unpaired</Text>
+            <View style={styles.mappingColumns}>
+              <View style={styles.mappingColumn}>
+                {unpairedLeftItems.map((item) => {
+                  const selected = item.key === selectedLeftKey;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => handleLeftPress(item.key)}
+                      style={[
+                        styles.mappingItem,
+                        selected ? styles.mappingItemSelected : null
+                      ]}
+                      disabled={disabled}
+                    >
+                      <Text style={styles.mappingText}>{item.text.value}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={styles.mappingColumn}>
+                {unpairedRightItems.map((item) => {
+                  const selected = item.key === selectedRightKey;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => handleRightPress(item.key)}
+                      style={[
+                        styles.mappingItem,
+                        selected ? styles.mappingItemSelected : null
+                      ]}
+                      disabled={disabled}
+                    >
+                      <Text style={styles.mappingText}>{item.text.value}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
-          <Button label="Submit" onClick={submit} style={styles.centeredButton} />
+
+          <View style={styles.mappingSection}>
+            <Text style={styles.mappingSectionLabel}>Paired</Text>
+            {pairs.length === 0 ? (
+              <Text style={styles.mappingEmptyHint}>No pairs yet.</Text>
+            ) : (
+              <View style={styles.mappingPairedList}>
+                {pairs.map((pair) => {
+                  const left = leftByKey[pair.leftKey];
+                  const right = rightByKey[pair.rightKey];
+                  if (!left || !right) return null;
+                  return (
+                    <View
+                      key={`${pair.leftKey}-${pair.rightKey}`}
+                      style={styles.mappingPairedRow}
+                    >
+                      <View style={[styles.mappingItem, styles.mappingPairedItem]}>
+                        <Text style={styles.mappingText}>{left.value}</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => unpair(pair.leftKey, pair.rightKey)}
+                        style={styles.mappingUnpairButton}
+                        disabled={disabled}
+                      >
+                        <Text style={styles.mappingUnpairText}>Unpair</Text>
+                      </Pressable>
+                      <View style={[styles.mappingItem, styles.mappingPairedItem]}>
+                        <Text style={styles.mappingText}>{right.value}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          <Button
+            label="Submit"
+            onClick={submit}
+            style={styles.centeredButton}
+            disabled={!allPaired || disabled}
+          />
         </>
       )}
     </View>
@@ -1091,6 +1241,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12
   },
+  mappingSection: {
+    gap: 8
+  },
+  mappingSectionLabel: {
+    fontSize: 11,
+    color: "#94A3B8",
+    textTransform: "uppercase"
+  },
   mappingColumn: {
     flex: 1,
     gap: 10
@@ -1106,21 +1264,48 @@ const styles = StyleSheet.create({
   mappingItemSelected: {
     borderColor: "#F59E0B"
   },
-  mappingItemDisabled: {
-    opacity: 0.5
-  },
-  mappingLabel: {
-    fontSize: 11,
-    color: "#94A3B8",
-    textTransform: "uppercase"
-  },
   mappingText: {
     color: "#FFFFFF",
     fontSize: 16
   },
-  mappingHint: {
+  mappingEmptyHint: {
+    color: "#94A3B8",
+    fontSize: 13
+  },
+  mappingPairedList: {
+    gap: 10
+  },
+  mappingPairedRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.35)"
+  },
+  mappingPairedItem: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.85)"
+  },
+  mappingUnpairButton: {
+    alignSelf: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)"
+  },
+  mappingUnpairText: {
     color: "#38BDF8",
-    fontSize: 12
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase"
+  },
+  mappingActionBar: {
+    paddingTop: 4
   },
   incorrectLabel: {
     color: "#F97316",
