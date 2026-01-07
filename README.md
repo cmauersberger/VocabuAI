@@ -28,6 +28,10 @@ dotnet run --project .\\backend\\VocabuAI.Api\\VocabuAI.Api.csproj
 
 - Swagger UI (Development): `http://localhost:5080/swagger`
 
+### Local secrets
+
+For local dev, put connection strings in `backend/VocabuAI.Api/appsettings.Development.local.json` (this file is gitignored). The app loads it automatically so you don't need to export env vars for local work.
+
 ### Configuration
 
 - Required: `DATABASE_URL` (e.g. `postgresql://user:password@localhost:5432/vocabuai`)
