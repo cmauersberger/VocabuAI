@@ -5,7 +5,7 @@ import type { FlashCardEditDto } from "../../domain/dtos/flashcards/FlashCardEdi
 import Button from "../../components/Button";
 import FlashcardItem from "../../components/FlashcardItem";
 import FlashcardView from "../../components/FlashcardView";
-import FlashcardForm from "./components/FlashcardForm";
+import FlashcardEditForm from "../../components/FlashcardEditForm";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 
 type Props = {
@@ -203,7 +203,7 @@ export default function EditPage({ authToken }: Props) {
       </View>
 
       {isFormVisible ? (
-        <FlashcardForm
+        <FlashcardEditForm
           initialCard={editingCard}
           onSave={onSave}
           onCancel={onCancel}

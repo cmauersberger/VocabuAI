@@ -1,8 +1,8 @@
 import React from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import Button from "../../../components/Button";
-import type { FlashCardDto } from "../../../domain/dtos/flashcards/FlashCardDto";
-import type { FlashCardEditDto } from "../../../domain/dtos/flashcards/FlashCardEditDto";
+import Button from "./Button";
+import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
+import type { FlashCardEditDto } from "../domain/dtos/flashcards/FlashCardEditDto";
 
 type Props = {
   initialCard: FlashCardDto | null;
@@ -10,7 +10,11 @@ type Props = {
   onCancel: () => void;
 };
 
-export default function FlashcardForm({ initialCard, onSave, onCancel }: Props) {
+export default function FlashcardEditForm({
+  initialCard,
+  onSave,
+  onCancel
+}: Props) {
   const [foreignLanguage, setForeignLanguage] = React.useState("");
   const [localLanguage, setLocalLanguage] = React.useState("");
   const [synonymsText, setSynonymsText] = React.useState("");
