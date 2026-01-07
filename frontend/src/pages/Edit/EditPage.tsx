@@ -34,6 +34,7 @@ export default function EditPage({ authToken }: Props) {
   const [boxFilter, setBoxFilter] = React.useState<"all" | number>("all");
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [viewCard, setViewCard] = React.useState<FlashCardDto | null>(null);
+  const [formResetKey, setFormResetKey] = React.useState(0);
 
   const resetForm = () => {
     setEditingId(null);
@@ -42,6 +43,7 @@ export default function EditPage({ authToken }: Props) {
   const openNewForm = () => {
     resetForm();
     setIsFormVisible(true);
+    setFormResetKey((prev) => prev + 1);
   };
 
   const loadCards = React.useCallback(async () => {
@@ -73,7 +75,10 @@ export default function EditPage({ authToken }: Props) {
     setIsFormVisible(false);
   };
 
-  const onSave = async (draft: FlashCardEditDto) => {
+  const saveCard = async (
+    draft: FlashCardEditDto,
+    keepFormOpen: boolean
+  ) => {
     const payload: FlashCardEditDto = {
       ...draft,
       id: editingId ?? 0
@@ -108,10 +113,22 @@ export default function EditPage({ authToken }: Props) {
 
       setStatus(null);
       resetForm();
-      setIsFormVisible(false);
+      if (!keepFormOpen) {
+        setIsFormVisible(false);
+      } else {
+        setFormResetKey((prev) => prev + 1);
+      }
     } catch (error) {
       setStatus("Unable to reach the API.");
     }
+  };
+
+  const onSave = async (draft: FlashCardEditDto) => {
+    await saveCard(draft, false);
+  };
+
+  const onSaveAndNew = async (draft: FlashCardEditDto) => {
+    await saveCard(draft, true);
   };
 
   const editingCard =
@@ -204,9 +221,12 @@ export default function EditPage({ authToken }: Props) {
 
       {isFormVisible ? (
         <FlashcardEditForm
+          key={`flashcard-edit-${editingId ?? "new"}-${formResetKey}`}
           initialCard={editingCard}
           onSave={onSave}
+          onSaveAndNew={onSaveAndNew}
           onCancel={onCancel}
+          showSaveAndNew={!editingId}
         />
       ) : null}
 

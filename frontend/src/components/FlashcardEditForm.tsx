@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Button from "./Button";
 import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
 import type { FlashCardEditDto } from "../domain/dtos/flashcards/FlashCardEditDto";
@@ -7,13 +7,17 @@ import type { FlashCardEditDto } from "../domain/dtos/flashcards/FlashCardEditDt
 type Props = {
   initialCard: FlashCardDto | null;
   onSave: (draft: FlashCardEditDto) => void;
+  onSaveAndNew?: (draft: FlashCardEditDto) => void;
   onCancel: () => void;
+  showSaveAndNew?: boolean;
 };
 
 export default function FlashcardEditForm({
   initialCard,
   onSave,
-  onCancel
+  onSaveAndNew,
+  onCancel,
+  showSaveAndNew
 }: Props) {
   const [foreignLanguage, setForeignLanguage] = React.useState("");
   const [localLanguage, setLocalLanguage] = React.useState("");
@@ -29,7 +33,7 @@ export default function FlashcardEditForm({
     setError(null);
   }, [initialCard]);
 
-  const handleSave = () => {
+  const buildDraft = (): FlashCardEditDto | null => {
     const normalizedForeignLanguage = foreignLanguage.trim();
     const normalizedLocalLanguage = localLanguage.trim();
     const normalizedSynonyms = synonymsText.trim();
@@ -37,78 +41,118 @@ export default function FlashcardEditForm({
 
     if (!normalizedForeignLanguage || !normalizedLocalLanguage) {
       setError("Arabic word and meaning are required.");
-      return;
+      return null;
     }
 
-    onSave({
+    return {
       id: initialCard?.id ?? 0,
       foreignLanguage: normalizedForeignLanguage,
       localLanguage: normalizedLocalLanguage,
       synonyms: normalizedSynonyms.length ? normalizedSynonyms : null,
       annotation: normalizedAnnotation.length ? normalizedAnnotation : null
-    });
+    };
+  };
+
+  const handleSave = () => {
+    const draft = buildDraft();
+    if (!draft) return;
+    onSave(draft);
+  };
+
+  const handleSaveAndNew = () => {
+    if (!onSaveAndNew) return;
+    const draft = buildDraft();
+    if (!draft) return;
+    onSaveAndNew(draft);
   };
 
   return (
-    <View style={styles.form}>
-      <Text style={styles.label}>Arabic (fully vocalized)</Text>
-      <TextInput
-        value={foreignLanguage}
-        onChangeText={setForeignLanguage}
-        placeholder="مثال: القُرْآن"
-        placeholderTextColor="#64748B"
-        style={styles.input}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
+    <View style={styles.overlay} pointerEvents="box-none">
+      <View style={styles.backdrop} />
+      <View style={styles.form}>
+        <Text style={styles.label}>Arabic (fully vocalized)</Text>
+        <TextInput
+          value={foreignLanguage}
+          onChangeText={setForeignLanguage}
+          placeholder="U.O®OU,: OU,U,U?OñU'O›U+"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
-      <Text style={styles.label}>Meaning</Text>
-      <TextInput
-        value={localLanguage}
-        onChangeText={setLocalLanguage}
-        placeholder="e.g. The Qur'an / der Koran"
-        placeholderTextColor="#64748B"
-        style={styles.input}
-        autoCapitalize="sentences"
-      />
+        <Text style={styles.label}>Meaning</Text>
+        <TextInput
+          value={localLanguage}
+          onChangeText={setLocalLanguage}
+          placeholder="e.g. The Qur'an / der Koran"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+          autoCapitalize="sentences"
+        />
 
-      <Text style={styles.label}>Synonyms (comma-separated)</Text>
-      <TextInput
-        value={synonymsText}
-        onChangeText={setSynonymsText}
-        placeholder="optional: scripture, revelation"
-        placeholderTextColor="#64748B"
-        style={styles.input}
-        autoCapitalize="none"
-      />
+        <Text style={styles.label}>Synonyms (comma-separated)</Text>
+        <TextInput
+          value={synonymsText}
+          onChangeText={setSynonymsText}
+          placeholder="optional: scripture, revelation"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+          autoCapitalize="none"
+        />
 
-      <Text style={styles.label}>Annotation</Text>
-      <TextInput
-        value={annotation}
-        onChangeText={setAnnotation}
-        placeholder="optional: notes, usage, context"
-        placeholderTextColor="#64748B"
-        style={styles.input}
-        autoCapitalize="sentences"
-      />
+        <Text style={styles.label}>Annotation</Text>
+        <TextInput
+          value={annotation}
+          onChangeText={setAnnotation}
+          placeholder="optional: notes, usage, context"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+          autoCapitalize="sentences"
+        />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.actions}>
-        <Button label="Save" onClick={handleSave} />
-        <Button label="Cancel" onClick={onCancel} style={styles.cancelButton} />
+        <View style={styles.actions}>
+          <Button
+            label="Cancel"
+            onClick={onCancel}
+            style={styles.secondaryButton}
+          />
+          <Button label="Save" onClick={handleSave} />
+          {showSaveAndNew ? (
+            <Button
+              label="Save & New"
+              onClick={handleSaveAndNew}
+              style={styles.secondaryButton}
+            />
+          ) : null}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 60
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.68)"
+  },
   form: {
-    marginTop: 8,
+    width: "90%",
+    maxWidth: 520,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(148, 163, 184, 0.08)",
-    gap: 8
+    backgroundColor: "#111827",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)"
   },
   label: {
     fontSize: 13,
@@ -130,9 +174,10 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 4,
     flexDirection: "row",
-    gap: 10
+    gap: 10,
+    justifyContent: "center"
   },
-  cancelButton: {
+  secondaryButton: {
     backgroundColor: "rgba(148, 163, 184, 0.18)"
   }
 });
