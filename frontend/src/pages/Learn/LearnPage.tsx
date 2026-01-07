@@ -1181,6 +1181,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12
   },
+  mappingCard: {},
   questionLabel: {
     color: "#94A3B8",
     fontSize: 12,
