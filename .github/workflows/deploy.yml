@@ -26,9 +26,9 @@
 
         - uses: docker/build-push-action@v6
           with:
-            context: ./docker
+            context: .
             push: true
-            tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            tags: ${{ env.REGISTRY }}/${{ toLower(env.IMAGE_NAME) }}:latest
 
         - name: Deploy
           run: |
