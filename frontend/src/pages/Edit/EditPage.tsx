@@ -215,10 +215,6 @@ export default function EditPage({ authToken }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
-        <Button label="New Flashcard" onClick={openNewForm} />
-      </View>
-
       {isFormVisible ? (
         <FlashcardEditForm
           key={`flashcard-edit-${editingId ?? "new"}-${formResetKey}`}
@@ -230,119 +226,129 @@ export default function EditPage({ authToken }: Props) {
         />
       ) : null}
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Flashcards</Text>
-        <View style={styles.filterContainer}>
+      <View style={styles.tableArea}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Flashcards</Text>
+          <View style={styles.filterContainer}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsFilterOpen((prev) => !prev)}
+              style={({ pressed }) => [
+                styles.filterButton,
+                pressed ? styles.filterButtonPressed : null
+              ]}
+            >
+              <Text style={styles.filterButtonText}>
+                Box: {boxFilter === "all" ? "All" : `#${boxFilter}`} v
+              </Text>
+            </Pressable>
+            {isFilterOpen ? (
+              <View style={styles.filterMenu}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setBoxFilter("all");
+                    setIsFilterOpen(false);
+                  }}
+                  style={styles.filterOption}
+                >
+                  <Text style={styles.filterOptionText}>All boxes</Text>
+                </Pressable>
+                {Array.from({ length: MAX_BOX }, (_, index) => index + 1).map(
+                  (box) => (
+                    <Pressable
+                      accessibilityRole="button"
+                      key={box}
+                      onPress={() => {
+                        setBoxFilter(box);
+                        setIsFilterOpen(false);
+                      }}
+                      style={styles.filterOption}
+                    >
+                      <Text style={styles.filterOptionText}>Box #{box}</Text>
+                    </Pressable>
+                  )
+                )}
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {status ? <Text style={styles.status}>{status}</Text> : null}
+        <View style={styles.headerRow}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setIsFilterOpen((prev) => !prev)}
-            style={({ pressed }) => [
-              styles.filterButton,
-              pressed ? styles.filterButtonPressed : null
-            ]}
+            onPress={() => handleSort("box")}
+            style={styles.headerBox}
           >
-            <Text style={styles.filterButtonText}>
-              Box: {boxFilter === "all" ? "All" : `#${boxFilter}`} v
+            <Text style={styles.headerText}>
+              Box {getCaret("box") ?? ""}
             </Text>
           </Pressable>
-          {isFilterOpen ? (
-            <View style={styles.filterMenu}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setBoxFilter("all");
-                  setIsFilterOpen(false);
-                }}
-                style={styles.filterOption}
-              >
-                <Text style={styles.filterOptionText}>All boxes</Text>
-              </Pressable>
-              {Array.from({ length: MAX_BOX }, (_, index) => index + 1).map(
-                (box) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={box}
-                    onPress={() => {
-                      setBoxFilter(box);
-                      setIsFilterOpen(false);
-                    }}
-                    style={styles.filterOption}
-                  >
-                    <Text style={styles.filterOptionText}>Box #{box}</Text>
-                  </Pressable>
-                )
-              )}
-            </View>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSort("localLanguage")}
+            style={styles.headerTextColumn}
+          >
+            <Text style={styles.headerText}>
+              Translation {getCaret("localLanguage") ?? ""}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSort("foreignLanguage")}
+            style={styles.headerArabicColumn}
+          >
+            <Text style={[styles.headerText, styles.headerRight]}>
+              Arabic {getCaret("foreignLanguage") ?? ""}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSort("lastAnsweredAt")}
+            style={styles.headerLastLearned}
+          >
+            <Text style={[styles.headerText, styles.headerCenter]}>
+              Learned {getCaret("lastAnsweredAt") ?? ""}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleSort("dateTimeCreated")}
+            style={styles.headerCreated}
+          >
+            <Text style={[styles.headerText, styles.headerCenter]}>
+              Created {getCaret("dateTimeCreated") ?? ""}
+            </Text>
+          </Pressable>
+          <View style={styles.headerEditSpacer} />
         </View>
+        <ScrollView contentContainerStyle={styles.list}>
+          {displayCards.length === 0 ? (
+            <Text style={styles.empty}>No flashcards yet.</Text>
+          ) : (
+            displayCards.map((card) => (
+              <FlashcardItem
+                key={card.id}
+                card={card}
+                onView={() => setViewCard(card)}
+                onEdit={() => {
+                  setEditingId(card.id);
+                  setIsFormVisible(true);
+                }}
+              />
+            ))
+          )}
+        </ScrollView>
       </View>
 
-      {status ? <Text style={styles.status}>{status}</Text> : null}
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => handleSort("box")}
-          style={styles.headerBox}
-        >
-          <Text style={styles.headerText}>
-            Box {getCaret("box") ?? ""}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => handleSort("localLanguage")}
-          style={styles.headerTextColumn}
-        >
-          <Text style={styles.headerText}>
-            Translation {getCaret("localLanguage") ?? ""}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => handleSort("foreignLanguage")}
-          style={styles.headerArabicColumn}
-        >
-          <Text style={[styles.headerText, styles.headerRight]}>
-            Arabic {getCaret("foreignLanguage") ?? ""}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => handleSort("lastAnsweredAt")}
-          style={styles.headerLastLearned}
-        >
-          <Text style={[styles.headerText, styles.headerCenter]}>
-            Learned {getCaret("lastAnsweredAt") ?? ""}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => handleSort("dateTimeCreated")}
-          style={styles.headerCreated}
-        >
-          <Text style={[styles.headerText, styles.headerCenter]}>
-            Created {getCaret("dateTimeCreated") ?? ""}
-          </Text>
-        </Pressable>
-        <View style={styles.headerEditSpacer} />
+      <View style={styles.bottomBar}>
+        <Button
+          label="New Flashcard"
+          onClick={openNewForm}
+          style={styles.centeredButton}
+        />
       </View>
-      <ScrollView contentContainerStyle={styles.list}>
-        {displayCards.length === 0 ? (
-          <Text style={styles.empty}>No flashcards yet.</Text>
-        ) : (
-          displayCards.map((card) => (
-            <FlashcardItem
-              key={card.id}
-              card={card}
-              onView={() => setViewCard(card)}
-              onEdit={() => {
-                setEditingId(card.id);
-                setIsFormVisible(true);
-              }}
-            />
-          ))
-        )}
-      </ScrollView>
 
       {isFilterOpen ? (
         <Pressable
@@ -364,11 +370,17 @@ const styles = StyleSheet.create({
     gap: 8,
     position: "relative"
   },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
+  tableArea: {
+    flex: 1
+  },
+  bottomBar: {
     alignItems: "center",
-    gap: 12
+    justifyContent: "center",
+    paddingTop: 8,
+    width: "100%"
+  },
+  centeredButton: {
+    alignSelf: "center"
   },
   sectionHeader: {
     marginTop: 12,
