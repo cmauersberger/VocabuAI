@@ -30,14 +30,25 @@ dotnet run --project .\\backend\\VocabuAI.Api\\VocabuAI.Api.csproj
 
 ### Local secrets
 
-For local dev, put connection strings in `backend/VocabuAI.Api/appsettings.Development.local.json` (this file is gitignored). The app loads it automatically so you don't need to export env vars for local work.
+For local dev, put connection strings and invite token hash in `backend/VocabuAI.Api/appsettings.Development.local.json` (this file is gitignored). The app loads it automatically so you don't need to export env vars for local work.
 
 ### Configuration
 
 - Required: `DATABASE_URL` (e.g. `postgresql://user:password@localhost:5432/vocabuai`)
 - Required: `JWT_SECRET` (>= 32 chars) or `Jwt__SigningKey`
+- Required: `INVITE_TOKEN_HASH` (SHA-256 hex of your invite token)
 - Optional: `Jwt__Issuer`, `Jwt__Audience`
 - Automatic: EF Core migrations run on startup. Warning: this can lock tables, delay startup, and requires schema-altering DB permissions.
+
+To generate an invite token hash locally:
+
+```powershell
+$token = -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 32 | ForEach-Object { [char]$_ })
+$hash = (New-Object System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($token))
+$hex = -join ($hash | ForEach-Object { $_.ToString('x2') })
+$token
+$hex
+```
 
 ### Quick API flow
 

@@ -1,6 +1,8 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -29,6 +31,17 @@ var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
 if (!string.IsNullOrWhiteSpace(jwtSecret) && string.IsNullOrWhiteSpace(builder.Configuration["Jwt:SigningKey"]))
 {
     builder.Configuration["Jwt:SigningKey"] = jwtSecret;
+}
+
+var inviteTokenHash = Environment.GetEnvironmentVariable("INVITE_TOKEN_HASH");
+if (!string.IsNullOrWhiteSpace(inviteTokenHash))
+{
+    builder.Configuration["Invite:TokenHash"] = inviteTokenHash;
+}
+
+if (!InviteTokenHasher.IsValidHashFormat(builder.Configuration["Invite:TokenHash"]))
+{
+    throw new InvalidOperationException("Invite token hash is missing or invalid. Set INVITE_TOKEN_HASH to a SHA-256 hex value.");
 }
 
 builder.Services.AddOptions<JwtOptions>()
@@ -75,6 +88,17 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("signup", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 5;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+        limiterOptions.AutoReplenishment = true;
+    });
+});
 
 builder.Services.AddCors(cors =>
 {
@@ -124,6 +148,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseCors();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {

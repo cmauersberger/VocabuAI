@@ -5,4 +5,6 @@ namespace VocabuAI.Infrastructure.Repositories;
 public interface IUserRepository : IRepository<UserDb>
 {
     UserDb? GetByEmail(string email);
+    int GetUserCount();
+    bool TryAddUserWithLimit(UserDb user, int maxUsers);
 }

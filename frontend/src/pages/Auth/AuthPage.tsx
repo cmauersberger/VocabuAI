@@ -23,6 +23,7 @@ export default function AuthPage({ onAuthenticated }: Props) {
   const [email, setEmail] = React.useState("");
   const [userName, setUserName] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [inviteToken, setInviteToken] = React.useState("");
   const [status, setStatus] = React.useState<Status | null>(null);
   const [isBackendHealthy, setIsBackendHealthy] = React.useState<boolean | null>(
     null
@@ -115,6 +116,10 @@ export default function AuthPage({ onAuthenticated }: Props) {
       });
       return;
     }
+    if (!inviteToken.trim()) {
+      setStatus({ text: "Invite code is required.", tone: "error" });
+      return;
+    }
 
     setStatus({ text: "Creating account...", tone: "info" });
 
@@ -125,22 +130,24 @@ export default function AuthPage({ onAuthenticated }: Props) {
         body: JSON.stringify({
           email: normalizedEmail,
           userName: normalizedUserName,
-          password
+          password,
+          inviteToken: inviteToken.trim()
         })
       });
 
       if (!response.ok) {
-        const message =
-          response.status === 409
-            ? "Email already exists."
-            : "Could not create user.";
-        setStatus({ text: message, tone: "error" });
+        const payload = (await response.json().catch(() => null)) as
+          | { message?: string }
+          | null;
+        const fallback = response.status === 409 ? "Email already exists." : "Unknown error.";
+        setStatus({ text: payload?.message ?? fallback, tone: "error" });
         return;
       }
 
       setStatus({ text: "Account created. You can sign in now.", tone: "success" });
       setMode("login");
       setPassword("");
+      setInviteToken("");
     } catch (error) {
       setStatus({ text: "Unable to reach the API.", tone: "error" });
     }
@@ -181,6 +188,18 @@ export default function AuthPage({ onAuthenticated }: Props) {
             placeholderTextColor="#64748B"
             style={styles.input}
             autoCapitalize="words"
+          />
+        ) : null}
+        {mode === "signup" ? (
+          <TextInput
+            value={inviteToken}
+            onChangeText={setInviteToken}
+            placeholder="Invite code"
+            placeholderTextColor="#64748B"
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
           />
         ) : null}
         <TextInput
