@@ -33,7 +33,7 @@ dotnet run --project .\\backend\\VocabuAI.Api\\VocabuAI.Api.csproj
 - Required: `DATABASE_URL` (e.g. `postgresql://user:password@localhost:5432/vocabuai`)
 - Required: `JWT_SECRET` (>= 32 chars) or `Jwt__SigningKey`
 - Optional: `Jwt__Issuer`, `Jwt__Audience`
-- Optional: `Database__RunMigrations=true` to apply EF Core migrations at startup
+- Automatic: EF Core migrations run on startup. Warning: this can lock tables, delay startup, and requires schema-altering DB permissions.
 
 ### Quick API flow
 

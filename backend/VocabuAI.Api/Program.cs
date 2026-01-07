@@ -129,9 +129,10 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-if (app.Configuration.GetValue<bool>("Database:RunMigrations"))
+// WARNING: Running migrations on startup can block app startup and requires schema-altering permissions.
+// Ensure your deployment strategy accounts for zero-downtime compatibility and operational risk.
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.Migrate();
 }
