@@ -5,7 +5,7 @@ import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
 type Props = {
   card: FlashCardDto;
   onEdit?: () => void;
-  onPreview?: () => void;
+  onView?: () => void;
 };
 
 const formatLastLearned = (value?: string | null) => {
@@ -36,7 +36,7 @@ const formatLastLearned = (value?: string | null) => {
   return `${years}y`;
 };
 
-export default function FlashcardItem({ card, onEdit, onPreview }: Props) {
+export default function FlashcardItem({ card, onEdit, onView }: Props) {
   return (
     <View style={styles.row}>
       <View style={styles.boxColumn}>
@@ -59,17 +59,17 @@ export default function FlashcardItem({ card, onEdit, onPreview }: Props) {
       <Text style={styles.createdAt}>
         {formatLastLearned(card.dateTimeCreated)}
       </Text>
-      {onPreview ? (
+      {onView ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Preview flashcard"
-          onPress={onPreview}
+          onPress={onView}
           style={({ pressed }) => [
             styles.actionButton,
             pressed ? styles.actionButtonPressed : null
           ]}
         >
-          <Text style={styles.actionButtonLabel}>👁</Text>
+          <Text style={styles.actionButtonLabel}>🔍</Text>
         </Pressable>
       ) : null}
       {onEdit ? (
