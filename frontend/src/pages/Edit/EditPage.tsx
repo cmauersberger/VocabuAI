@@ -32,6 +32,9 @@ export default function EditPage({ authToken }: Props) {
   const [sortState, setSortState] = React.useState<SortState>(null);
   const [boxFilter, setBoxFilter] = React.useState<"all" | number>("all");
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
+  const [previewCard, setPreviewCard] = React.useState<FlashCardDto | null>(
+    null
+  );
 
   const resetForm = () => {
     setEditingId(null);
@@ -312,6 +315,7 @@ export default function EditPage({ authToken }: Props) {
             <FlashcardItem
               key={card.id}
               card={card}
+              onPreview={() => setPreviewCard(card)}
               onEdit={() => {
                 setEditingId(card.id);
                 setIsFormVisible(true);
@@ -327,6 +331,36 @@ export default function EditPage({ authToken }: Props) {
           onPress={() => setIsFilterOpen(false)}
           style={styles.filterBackdrop}
         />
+      ) : null}
+
+      {previewCard ? (
+        <View style={styles.previewOverlay} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setPreviewCard(null)}
+            style={styles.previewBackdrop}
+          />
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTerm}>{previewCard.localLanguage}</Text>
+            <Text style={styles.previewTerm}>{previewCard.foreignLanguage}</Text>
+            {previewCard.synonyms ? (
+              <Text style={styles.previewMeta}>{previewCard.synonyms}</Text>
+            ) : null}
+            {previewCard.annotation ? (
+              <Text style={styles.previewMeta}>{previewCard.annotation}</Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setPreviewCard(null)}
+              style={({ pressed }) => [
+                styles.previewCloseButton,
+                pressed ? styles.previewCloseButtonPressed : null
+              ]}
+            >
+              <Text style={styles.previewCloseLabel}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -404,7 +438,7 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   headerEditSpacer: {
-    width: 28
+    width: 64
   },
   filterContainer: {
     alignItems: "flex-end",
@@ -458,5 +492,55 @@ const styles = StyleSheet.create({
   empty: {
     color: "#94A3B8",
     textAlign: "center"
+  },
+  previewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 50
+  },
+  previewBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.68)"
+  },
+  previewCard: {
+    width: "88%",
+    maxWidth: 360,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    gap: 16,
+    alignItems: "center"
+  },
+  previewTerm: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#F8FAFC",
+    textAlign: "center"
+  },
+  previewMeta: {
+    fontSize: 14,
+    color: "#CBD5F5",
+    textAlign: "center"
+  },
+  previewCloseButton: {
+    marginTop: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    backgroundColor: "rgba(148, 163, 184, 0.18)"
+  },
+  previewCloseButtonPressed: {
+    opacity: 0.9
+  },
+  previewCloseLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#E5E7EB"
   }
 });

@@ -5,6 +5,7 @@ import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
 type Props = {
   card: FlashCardDto;
   onEdit?: () => void;
+  onPreview?: () => void;
 };
 
 const formatLastLearned = (value?: string | null) => {
@@ -35,7 +36,7 @@ const formatLastLearned = (value?: string | null) => {
   return `${years}y`;
 };
 
-export default function FlashcardItem({ card, onEdit }: Props) {
+export default function FlashcardItem({ card, onEdit, onPreview }: Props) {
   return (
     <View style={styles.row}>
       <View style={styles.boxColumn}>
@@ -52,19 +53,36 @@ export default function FlashcardItem({ card, onEdit }: Props) {
       <Text style={styles.arabic} numberOfLines={1}>
         {card.foreignLanguage}
       </Text>
-      <Text style={styles.lastLearned}>{formatLastLearned(card.lastAnsweredAt)}</Text>
-      <Text style={styles.createdAt}>{formatLastLearned(card.dateTimeCreated)}</Text>
+      <Text style={styles.lastLearned}>
+        {formatLastLearned(card.lastAnsweredAt)}
+      </Text>
+      <Text style={styles.createdAt}>
+        {formatLastLearned(card.dateTimeCreated)}
+      </Text>
+      {onPreview ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Preview flashcard"
+          onPress={onPreview}
+          style={({ pressed }) => [
+            styles.actionButton,
+            pressed ? styles.actionButtonPressed : null
+          ]}
+        >
+          <Text style={styles.actionButtonLabel}>👁</Text>
+        </Pressable>
+      ) : null}
       {onEdit ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Edit flashcard"
           onPress={onEdit}
           style={({ pressed }) => [
-            styles.editButton,
-            pressed ? styles.editButtonPressed : null
+            styles.actionButton,
+            pressed ? styles.actionButtonPressed : null
           ]}
         >
-          <Text style={styles.editButtonLabel}>✎</Text>
+          <Text style={styles.actionButtonLabel}>✎</Text>
         </Pressable>
       ) : null}
     </View>
@@ -126,7 +144,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#94A3B8"
   },
-  editButton: {
+  actionButton: {
     minWidth: 28,
     height: 24,
     borderRadius: 8,
@@ -134,10 +152,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(199, 210, 254, 0.14)"
   },
-  editButtonPressed: {
+  actionButtonPressed: {
     opacity: 0.9
   },
-  editButtonLabel: {
+  actionButtonLabel: {
     color: "#E5E7EB",
     fontSize: 14,
     fontWeight: "600"

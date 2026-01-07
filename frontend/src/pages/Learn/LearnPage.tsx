@@ -35,7 +35,7 @@ type SessionSummary = {
 
 type MappingAnswerResult = { flashCardId: number; isCorrect: boolean };
 
-const DEFAULT_TASK_COUNT = 4;
+const DEFAULT_TASK_COUNT = 6;
 const IGNORE_VOCALIZATION = true;
 
 export default function LearnPage({
