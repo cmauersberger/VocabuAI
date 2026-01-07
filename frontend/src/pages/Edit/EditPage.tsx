@@ -277,56 +277,56 @@ export default function EditPage({ authToken }: Props) {
         </View>
       </View>
 
+      {status ? <Text style={styles.status}>{status}</Text> : null}
+      <View style={styles.headerRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => handleSort("box")}
+          style={styles.headerBox}
+        >
+          <Text style={styles.headerText}>
+            Box {getCaret("box") ?? ""}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => handleSort("localLanguage")}
+          style={styles.headerTextColumn}
+        >
+          <Text style={styles.headerText}>
+            Translation {getCaret("localLanguage") ?? ""}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => handleSort("foreignLanguage")}
+          style={styles.headerArabicColumn}
+        >
+          <Text style={[styles.headerText, styles.headerRight]}>
+            Arabic {getCaret("foreignLanguage") ?? ""}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => handleSort("lastAnsweredAt")}
+          style={styles.headerLastLearned}
+        >
+          <Text style={[styles.headerText, styles.headerCenter]}>
+            Learned {getCaret("lastAnsweredAt") ?? ""}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => handleSort("dateTimeCreated")}
+          style={styles.headerCreated}
+        >
+          <Text style={[styles.headerText, styles.headerCenter]}>
+            Created {getCaret("dateTimeCreated") ?? ""}
+          </Text>
+        </Pressable>
+        <View style={styles.headerEditSpacer} />
+      </View>
       <ScrollView contentContainerStyle={styles.list}>
-        {status ? <Text style={styles.status}>{status}</Text> : null}
-        <View style={styles.headerRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSort("box")}
-            style={styles.headerBox}
-          >
-            <Text style={styles.headerText}>
-              Box {getCaret("box") ?? ""}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSort("localLanguage")}
-            style={styles.headerTextColumn}
-          >
-            <Text style={styles.headerText}>
-              Translation {getCaret("localLanguage") ?? ""}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSort("foreignLanguage")}
-            style={styles.headerArabicColumn}
-          >
-            <Text style={[styles.headerText, styles.headerRight]}>
-              Arabic {getCaret("foreignLanguage") ?? ""}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSort("lastAnsweredAt")}
-            style={styles.headerLastLearned}
-          >
-            <Text style={[styles.headerText, styles.headerCenter]}>
-              Learned {getCaret("lastAnsweredAt") ?? ""}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleSort("dateTimeCreated")}
-            style={styles.headerCreated}
-          >
-            <Text style={[styles.headerText, styles.headerCenter]}>
-              Created {getCaret("dateTimeCreated") ?? ""}
-            </Text>
-          </Pressable>
-          <View style={styles.headerEditSpacer} />
-        </View>
         {displayCards.length === 0 ? (
           <Text style={styles.empty}>No flashcards yet.</Text>
         ) : (
