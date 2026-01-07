@@ -13,15 +13,19 @@ public sealed class FlashCardLearningProgressService
                 CurrentBox: 1,
                 RequiredProgressPoints: 2,
                 MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>(),
-                MinimumElapsedSinceCreated: TimeSpan.FromDays(7))
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(5))
         },
         {
             2,
             new AdvancementRule(
                 CurrentBox: 2,
                 RequiredProgressPoints: 5,
-                MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>(),
-                MinimumElapsedSinceCreated: TimeSpan.FromDays(25))
+                MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
+                {
+                    [LearningTaskType.FreeText] = 2,
+                    [LearningTaskType.MultipleChoice] = 2
+                },
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(14))
         },
         {
             3,
@@ -30,9 +34,9 @@ public sealed class FlashCardLearningProgressService
                 RequiredProgressPoints: 10,
                 MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
                 {
-                    [LearningTaskType.FreeText] = 2
+                    [LearningTaskType.FreeText] = 3
                 },
-                MinimumElapsedSinceCreated: TimeSpan.FromDays(60))
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(40))
         },
         {
             4,
@@ -41,9 +45,9 @@ public sealed class FlashCardLearningProgressService
                 RequiredProgressPoints: 15,
                 MinimumCorrectCountsByTaskType: new Dictionary<LearningTaskType, int>
                 {
-                    [LearningTaskType.FreeText] = 3
+                    [LearningTaskType.FreeText] = 4
                 },
-                MinimumElapsedSinceCreated: TimeSpan.FromDays(120))
+                MinimumElapsedSinceCreated: TimeSpan.FromDays(90))
         }
     };
 
