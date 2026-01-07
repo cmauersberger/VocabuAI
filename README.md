@@ -2,7 +2,7 @@
 
 Minimal build-ready monorepo:
 
-- Backend: ASP.NET Core minimal APIs (.NET 8 LTS), JWT auth, CRUD, Ollama REST integration
+- Backend: ASP.NET Core minimal APIs (.NET 9), JWT auth, CRUD, Ollama REST integration
 - Frontend: Expo + React Native (TypeScript) targeting Web and Android
 
 ### Structure
@@ -17,7 +17,7 @@ Minimal build-ready monorepo:
 
 ### Prereqs
 
-- .NET SDK 8.x
+- .NET SDK 9.x
 
 ### Run
 
@@ -27,6 +27,13 @@ dotnet run --project .\\backend\\VocabuAI.Api\\VocabuAI.Api.csproj
 ```
 
 - Swagger UI (Development): `http://localhost:5080/swagger`
+
+### Configuration
+
+- Required: `DATABASE_URL` (e.g. `postgresql://user:password@localhost:5432/vocabuai`)
+- Required: `JWT_SECRET` (>= 32 chars) or `Jwt__SigningKey`
+- Optional: `Jwt__Issuer`, `Jwt__Audience`
+- Optional: `Database__RunMigrations=true` to apply EF Core migrations at startup
 
 ### Quick API flow
 

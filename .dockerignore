@@ -1,0 +1,10 @@
+.git
+.github
+**/bin
+**/obj
+**/.env
+.env
+frontend
+concept
+docker
+_deployment-info
