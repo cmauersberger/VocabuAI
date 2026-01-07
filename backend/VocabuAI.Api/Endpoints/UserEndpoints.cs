@@ -48,7 +48,11 @@ public static class UserEndpoints
 
                 var existing = users.GetByEmail(email);
                 if (existing is not null)
-                    return Results.Conflict(new { message = "Email is already in use." });
+                {
+                    logger.LogInformation("Signup rejected due to email conflict.");
+                    return Results.Json(new { message = SignupFailureMessage },
+                        statusCode: StatusCodes.Status403Forbidden);
+                }
 
                 var user = new UserDb { Email = email, UserName = userName };
                 user.HashedPassword = hasher.HashPassword(user, request.Password);

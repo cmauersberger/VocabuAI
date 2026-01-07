@@ -153,13 +153,6 @@ export default function AuthPage({ onAuthenticated }: Props) {
     }
   };
 
-  // INTERNAL ONLY: this debug helper must never ship to production.
-  const handleInternalFill = () => {
-    setMode("login");
-    setEmail("c.mauersberger@googlemail.com");
-    setPassword("12345678");
-    setStatus(null);
-  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -232,10 +225,6 @@ export default function AuthPage({ onAuthenticated }: Props) {
           label={mode === "login" ? "Sign In" : "Create User"}
           onClick={mode === "login" ? handleLogin : handleSignup}
         />
-
-        {Platform.OS === "android" ? (
-          <Button label="INTERNAL ONLY" onClick={handleInternalFill} />
-        ) : null}
 
         <Text
           style={styles.link}
