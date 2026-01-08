@@ -27,6 +27,10 @@ export default function SettingsPage({
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
+  const [sampleStatus, setSampleStatus] = React.useState<string | null>(null);
+  const [isSeedingSamples, setIsSeedingSamples] = React.useState<
+    null | "en" | "fr"
+  >(null);
   const [activeMenu, setActiveMenu] = React.useState<"foreign" | "local" | null>(
     null
   );
@@ -109,6 +113,35 @@ export default function SettingsPage({
       setStatus("Unable to reach the API.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const createSampleCards = async (target: "en" | "fr") => {
+    setIsSeedingSamples(target);
+    setSampleStatus(`Creating sample flashcards DE->${target.toUpperCase()}...`);
+    try {
+      const endpoint =
+        target === "en"
+          ? "createSampleFlashCardsDeToEn"
+          : "createSampleFlashCardsDeToFr";
+      const response = await fetch(
+        `${apiBaseUrl}/api/flashcards/${endpoint}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (!response.ok) {
+        setSampleStatus("Unable to create sample flashcards.");
+        return;
+      }
+
+      setSampleStatus("Sample flashcards created.");
+    } catch (error) {
+      setSampleStatus("Unable to reach the API.");
+    } finally {
+      setIsSeedingSamples(null);
     }
   };
 
@@ -242,6 +275,33 @@ export default function SettingsPage({
         />
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Add sample content</Text>
+        {sampleStatus ? <Text style={styles.status}>{sampleStatus}</Text> : null}
+        <View style={styles.sampleButtons}>
+          <Button
+            label={
+              isSeedingSamples === "en"
+                ? "Creating sample flashcards..."
+                : "Create 30 sample vocabulary flashcards DE->EN"
+            }
+            onClick={() => createSampleCards("en")}
+            style={styles.emptyButton}
+            disabled={isSeedingSamples !== null}
+          />
+          <Button
+            label={
+              isSeedingSamples === "fr"
+                ? "Creating sample flashcards..."
+                : "Create 30 sample vocabulary flashcards DE->FR"
+            }
+            onClick={() => createSampleCards("fr")}
+            style={styles.emptyButton}
+            disabled={isSeedingSamples !== null}
+          />
+        </View>
+      </View>
+
       </ScrollView>
     </View>
   );
@@ -346,5 +406,11 @@ const styles = StyleSheet.create({
   status: {
     color: "#93C5FD",
     fontSize: 13
+  },
+  sampleButtons: {
+    gap: 10
+  },
+  emptyButton: {
+    alignSelf: "center"
   },
 });
