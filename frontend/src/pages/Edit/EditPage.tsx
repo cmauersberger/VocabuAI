@@ -39,6 +39,7 @@ export default function EditPage({ authToken }: Props) {
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [viewCard, setViewCard] = React.useState<FlashCardDto | null>(null);
   const [formResetKey, setFormResetKey] = React.useState(0);
+  const [isSeeding, setIsSeeding] = React.useState(false);
 
   const resetForm = () => {
     setEditingId(null);
@@ -155,6 +156,32 @@ export default function EditPage({ authToken }: Props) {
 
   const onSaveAndNew = async (draft: FlashCardEditDto) => {
     await saveCard(draft, true);
+  };
+
+  const createSampleCards = async () => {
+    setIsSeeding(true);
+    setStatus("Creating sample flashcards...");
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/flashcards/createSampleFlashCardsDeToEn`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (!response.ok) {
+        setStatus("Unable to create sample flashcards.");
+        return;
+      }
+
+      await loadCards();
+      setStatus(null);
+    } catch (error) {
+      setStatus("Unable to reach the API.");
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   const editingCard =
@@ -354,8 +381,22 @@ export default function EditPage({ authToken }: Props) {
           <View style={styles.headerEditSpacer} />
         </View>
         <ScrollView contentContainerStyle={styles.list}>
-          {displayCards.length === 0 ? (
-            <Text style={styles.empty}>No flashcards yet.</Text>
+          {cards.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.empty}>No flashcards yet.</Text>
+              <Button
+                label={
+                  isSeeding
+                    ? "Creating sample flashcards..."
+                    : "Create 30 sample vocabulary flashcards DE->EN"
+                }
+                onClick={createSampleCards}
+                style={styles.emptyButton}
+                disabled={isSeeding}
+              />
+            </View>
+          ) : displayCards.length === 0 ? (
+            <Text style={styles.empty}>No flashcards in this filter.</Text>
           ) : (
             displayCards.map((card) => (
               <FlashcardItem
@@ -525,5 +566,13 @@ const styles = StyleSheet.create({
   empty: {
     color: "#94A3B8",
     textAlign: "center"
+  },
+  emptyState: {
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12
+  },
+  emptyButton: {
+    alignSelf: "center"
   }
 });

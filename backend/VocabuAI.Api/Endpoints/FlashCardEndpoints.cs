@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using VocabuAI.Api.Dtos.FlashCards;
 using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Repositories;
+using VocabuAI.Api;
 
 namespace VocabuAI.Api.Endpoints;
 
@@ -118,6 +119,32 @@ public static class FlashCardEndpoints
             })
             .WithTags("FlashCards")
             .WithName("GetFlashCardCountPerBox");
+
+        group.MapPost("/createSampleFlashCardsDeToEn", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                foreach (var sample in SampleFlashCardsDeToEn.Items)
+                {
+                    var flashCard = new FlashCardDb
+                    {
+                        UserId = userId,
+                        ForeignLanguage = sample.ForeignTerm,
+                        LocalLanguage = sample.LocalTerm,
+                        ForeignLanguageCode = SampleFlashCardsDeToEn.ForeignLanguageCode,
+                        LocalLanguageCode = SampleFlashCardsDeToEn.LocalLanguageCode
+                    };
+
+                    repository.Add(flashCard);
+                }
+
+                repository.SaveChanges();
+
+                return Results.Ok(new { created = SampleFlashCardsDeToEn.Items.Count });
+            })
+            .WithTags("FlashCards")
+            .WithName("CreateSampleFlashCardsDeToEn");
     }
 
     private static bool TryGetUserId(ClaimsPrincipal user, out int userId)
