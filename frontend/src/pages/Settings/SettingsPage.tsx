@@ -137,6 +137,9 @@ export default function SettingsPage({
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Flashcard defaults</Text>
+        <Text style={styles.explanation}>
+          These languages are used for new flashcards you create.
+        </Text>
 
         <View style={styles.settingRow}>
           <Text style={styles.label}>Default Foreign Flashcard Language</Text>
@@ -278,6 +281,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#C7D2FE",
     fontWeight: "600"
+  },
+  explanation: {
+    fontSize: 13,
+    color: "#94A3B8"
   },
   label: {
     fontSize: 13,
