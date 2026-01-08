@@ -145,6 +145,32 @@ public static class FlashCardEndpoints
             })
             .WithTags("FlashCards")
             .WithName("CreateSampleFlashCardsDeToEn");
+
+        group.MapPost("/createSampleFlashCardsDeToFr", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                foreach (var sample in SampleFlashCardsDeToFr.Items)
+                {
+                    var flashCard = new FlashCardDb
+                    {
+                        UserId = userId,
+                        ForeignLanguage = sample.ForeignTerm,
+                        LocalLanguage = sample.LocalTerm,
+                        ForeignLanguageCode = SampleFlashCardsDeToFr.ForeignLanguageCode,
+                        LocalLanguageCode = SampleFlashCardsDeToFr.LocalLanguageCode
+                    };
+
+                    repository.Add(flashCard);
+                }
+
+                repository.SaveChanges();
+
+                return Results.Ok(new { created = SampleFlashCardsDeToFr.Items.Count });
+            })
+            .WithTags("FlashCards")
+            .WithName("CreateSampleFlashCardsDeToFr");
     }
 
     private static bool TryGetUserId(ClaimsPrincipal user, out int userId)

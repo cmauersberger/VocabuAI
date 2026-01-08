@@ -39,7 +39,7 @@ export default function EditPage({ authToken }: Props) {
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [viewCard, setViewCard] = React.useState<FlashCardDto | null>(null);
   const [formResetKey, setFormResetKey] = React.useState(0);
-  const [isSeeding, setIsSeeding] = React.useState(false);
+  const [isSeeding, setIsSeeding] = React.useState<null | "en" | "fr">(null);
 
   const resetForm = () => {
     setEditingId(null);
@@ -158,12 +158,16 @@ export default function EditPage({ authToken }: Props) {
     await saveCard(draft, true);
   };
 
-  const createSampleCards = async () => {
-    setIsSeeding(true);
-    setStatus("Creating sample flashcards...");
+  const createSampleCards = async (target: "en" | "fr") => {
+    setIsSeeding(target);
+    setStatus(`Creating sample flashcards DE->${target.toUpperCase()}...`);
     try {
+      const endpoint =
+        target === "en"
+          ? "createSampleFlashCardsDeToEn"
+          : "createSampleFlashCardsDeToFr";
       const response = await fetch(
-        `${apiBaseUrl}/api/flashcards/createSampleFlashCardsDeToEn`,
+        `${apiBaseUrl}/api/flashcards/${endpoint}`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` }
@@ -180,7 +184,7 @@ export default function EditPage({ authToken }: Props) {
     } catch (error) {
       setStatus("Unable to reach the API.");
     } finally {
-      setIsSeeding(false);
+      setIsSeeding(null);
     }
   };
 
@@ -386,13 +390,23 @@ export default function EditPage({ authToken }: Props) {
               <Text style={styles.empty}>No flashcards yet.</Text>
               <Button
                 label={
-                  isSeeding
+                  isSeeding === "en"
                     ? "Creating sample flashcards..."
                     : "Create 30 sample vocabulary flashcards DE->EN"
                 }
-                onClick={createSampleCards}
+                onClick={() => createSampleCards("en")}
                 style={styles.emptyButton}
-                disabled={isSeeding}
+                disabled={isSeeding !== null}
+              />
+              <Button
+                label={
+                  isSeeding === "fr"
+                    ? "Creating sample flashcards..."
+                    : "Create 30 sample vocabulary flashcards DE->FR"
+                }
+                onClick={() => createSampleCards("fr")}
+                style={styles.emptyButton}
+                disabled={isSeeding !== null}
               />
             </View>
           ) : displayCards.length === 0 ? (
