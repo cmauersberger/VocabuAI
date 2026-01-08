@@ -1,8 +1,12 @@
+using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
 using VocabuAI.Api.Infrastructure;
+using VocabuAI.Api.Dtos;
 
 namespace VocabuAI.Api.Endpoints;
 
@@ -124,6 +128,55 @@ public static class UserEndpoints
             .RequireAuthorization()
             .WithTags("Users")
             .WithName("UpdateUser");
+
+        app.MapGet("/api/users/GetUserSettings", (ClaimsPrincipal user, IUserRepository users) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var currentUser = users.GetById(userId);
+                if (currentUser is null)
+                    return Results.NotFound();
+
+                var response = new UserSettingsDto(
+                    currentUser.DefaultForeignFlashCardLanguage,
+                    currentUser.DefaultLocalFlashCardLanguage);
+
+                return Results.Ok(response);
+            })
+            .RequireAuthorization()
+            .WithTags("Users")
+            .WithName("GetUserSettings");
+
+        app.MapPut("/api/users/UpdateUserSettings", (UserSettingsDto request, ClaimsPrincipal user, IUserRepository users) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var currentUser = users.GetById(userId);
+                if (currentUser is null)
+                    return Results.NotFound();
+
+                if (!TryNormalizeLanguage(request.DefaultForeignFlashCardLanguage, out var foreignLanguage, out var error))
+                    return Results.BadRequest(new { message = error });
+                if (!TryNormalizeLanguage(request.DefaultLocalFlashCardLanguage, out var localLanguage, out error))
+                    return Results.BadRequest(new { message = error });
+
+                currentUser.DefaultForeignFlashCardLanguage = foreignLanguage;
+                currentUser.DefaultLocalFlashCardLanguage = localLanguage;
+
+                users.Update(currentUser);
+                users.SaveChanges();
+
+                var response = new UserSettingsDto(
+                    currentUser.DefaultForeignFlashCardLanguage,
+                    currentUser.DefaultLocalFlashCardLanguage);
+
+                return Results.Ok(response);
+            })
+            .RequireAuthorization()
+            .WithTags("Users")
+            .WithName("UpdateUserSettings");
     }
 
     private static string NormalizeEmail(string email)
@@ -134,6 +187,75 @@ public static class UserEndpoints
 
     private static bool IsValidUserName(string userName)
         => userName.Replace(" ", "", StringComparison.Ordinal).Length >= 3;
+
+    private static bool TryGetUserId(ClaimsPrincipal user, out int userId)
+    {
+        var idValue = user.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        return int.TryParse(idValue, out userId);
+    }
+
+    private static bool TryNormalizeLanguage(string? value, out string normalized, out string error)
+    {
+        normalized = value?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            error = "Language code is required.";
+            return false;
+        }
+
+        try
+        {
+            if (IsInvariantGlobalization())
+            {
+                if (!IsBasicLanguageCode(normalized))
+                {
+                    error = "Language code is invalid.";
+                    return false;
+                }
+            }
+            else
+            {
+                normalized = CultureInfo.GetCultureInfo(normalized).Name;
+            }
+        }
+        catch (CultureNotFoundException)
+        {
+            error = "Language code is invalid.";
+            return false;
+        }
+
+        error = "";
+        return true;
+    }
+
+    private static bool IsInvariantGlobalization()
+        => AppContext.TryGetSwitch("System.Globalization.Invariant", out var invariant) && invariant;
+
+    private static bool IsBasicLanguageCode(string value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            var ch = value[i];
+            var isAlphaNum = (ch >= 'a' && ch <= 'z')
+                || (ch >= 'A' && ch <= 'Z')
+                || (ch >= '0' && ch <= '9');
+            if (isAlphaNum)
+            {
+                continue;
+            }
+
+            if (ch == '-' && i > 0 && i < value.Length - 1)
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
 }
 
 public sealed record CreateUserRequest(string Email, string UserName, string Password, string InviteToken);

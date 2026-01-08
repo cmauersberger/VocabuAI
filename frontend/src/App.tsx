@@ -69,6 +69,7 @@ export default function App() {
       <SettingsPage
         email={auth.email}
         userName={auth.userName}
+        authToken={auth.token as string}
         issuedAt={auth.issuedAt}
         expiresAt={auth.expiresAt}
         onLogout={handleLogout}

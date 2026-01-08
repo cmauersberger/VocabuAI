@@ -41,6 +41,12 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.Email).IsRequired();
             entity.Property(e => e.UserName).IsRequired();
             entity.Property(e => e.HashedPassword).IsRequired();
+            entity.Property(e => e.DefaultForeignFlashCardLanguage)
+                .IsRequired()
+                .HasDefaultValue(UserDb.DefaultForeignFlashCardLanguageDefault);
+            entity.Property(e => e.DefaultLocalFlashCardLanguage)
+                .IsRequired()
+                .HasDefaultValue(UserDb.DefaultLocalFlashCardLanguageDefault);
             entity.Property(e => e.DateTimeCreated).IsRequired();
             entity.Property(e => e.DateTimeUpdated).IsRequired();
             entity.HasMany(e => e.FlashCards)
