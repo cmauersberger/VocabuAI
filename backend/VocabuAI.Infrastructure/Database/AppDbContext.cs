@@ -63,6 +63,8 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.ForeignLanguage).IsRequired();
             entity.Property(e => e.LocalLanguage).IsRequired();
+            entity.Property(e => e.ForeignLanguageCode).IsRequired();
+            entity.Property(e => e.LocalLanguageCode).IsRequired();
             entity.Property(e => e.Synonyms);
             entity.Property(e => e.Annotation);
             entity.Property(e => e.DateTimeCreated).IsRequired();

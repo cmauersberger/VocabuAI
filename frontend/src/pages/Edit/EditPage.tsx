@@ -7,6 +7,7 @@ import FlashcardItem from "../../components/FlashcardItem";
 import FlashcardView from "../../components/FlashcardView";
 import FlashcardEditForm from "../../components/FlashcardEditForm";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 
 type Props = {
   authToken: string;
@@ -27,6 +28,9 @@ export default function EditPage({ authToken }: Props) {
   const apiBaseUrl = getApiBaseUrl();
 
   const [cards, setCards] = React.useState<FlashCardDto[]>([]);
+  const [userSettings, setUserSettings] = React.useState<UserSettingsDto | null>(
+    null
+  );
   const [isFormVisible, setIsFormVisible] = React.useState(false);
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [status, setStatus] = React.useState<string | null>(null);
@@ -45,6 +49,24 @@ export default function EditPage({ authToken }: Props) {
     setIsFormVisible(true);
     setFormResetKey((prev) => prev + 1);
   };
+
+  const loadUserSettings = React.useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/GetUserSettings`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (!response.ok) {
+        setStatus("Unable to load user settings.");
+        return;
+      }
+
+      const payload = (await response.json()) as UserSettingsDto;
+      setUserSettings(payload);
+    } catch (error) {
+      setStatus("Unable to reach the API.");
+    }
+  }, [apiBaseUrl, authToken]);
 
   const loadCards = React.useCallback(async () => {
     setStatus("Loading...");
@@ -69,6 +91,10 @@ export default function EditPage({ authToken }: Props) {
   React.useEffect(() => {
     loadCards();
   }, [loadCards]);
+
+  React.useEffect(() => {
+    loadUserSettings();
+  }, [loadUserSettings]);
 
   const onCancel = () => {
     resetForm();
@@ -219,6 +245,10 @@ export default function EditPage({ authToken }: Props) {
         <FlashcardEditForm
           key={`flashcard-edit-${editingId ?? "new"}-${formResetKey}`}
           initialCard={editingCard}
+          defaultForeignLanguageCode={
+            userSettings?.defaultForeignFlashCardLanguage
+          }
+          defaultLocalLanguageCode={userSettings?.defaultLocalFlashCardLanguage}
           onSave={onSave}
           onSaveAndNew={onSaveAndNew}
           onCancel={onCancel}

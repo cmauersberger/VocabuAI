@@ -6,6 +6,8 @@ public sealed record FlashCardEditDto(
     int Id,
     string ForeignLanguage,
     string LocalLanguage,
+    string ForeignLanguageCode,
+    string LocalLanguageCode,
     string? Synonyms,
     string? Annotation
 );

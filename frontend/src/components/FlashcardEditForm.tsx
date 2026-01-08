@@ -6,6 +6,8 @@ import type { FlashCardEditDto } from "../domain/dtos/flashcards/FlashCardEditDt
 
 type Props = {
   initialCard: FlashCardDto | null;
+  defaultForeignLanguageCode?: string;
+  defaultLocalLanguageCode?: string;
   onSave: (draft: FlashCardEditDto) => void;
   onSaveAndNew?: (draft: FlashCardEditDto) => void;
   onCancel: () => void;
@@ -14,6 +16,8 @@ type Props = {
 
 export default function FlashcardEditForm({
   initialCard,
+  defaultForeignLanguageCode,
+  defaultLocalLanguageCode,
   onSave,
   onSaveAndNew,
   onCancel,
@@ -33,14 +37,27 @@ export default function FlashcardEditForm({
     setError(null);
   }, [initialCard]);
 
+  const foreignLanguageCode =
+    initialCard?.foreignLanguageCode ?? defaultForeignLanguageCode ?? "";
+  const localLanguageCode =
+    initialCard?.localLanguageCode ?? defaultLocalLanguageCode ?? "";
+
+  const formatLabel = (label: string, code: string) =>
+    code ? `${label} (${code.toUpperCase()})` : label;
+
   const buildDraft = (): FlashCardEditDto | null => {
     const normalizedForeignLanguage = foreignLanguage.trim();
     const normalizedLocalLanguage = localLanguage.trim();
     const normalizedSynonyms = synonymsText.trim();
     const normalizedAnnotation = annotation.trim();
 
+    if (!foreignLanguageCode || !localLanguageCode) {
+      setError("Language settings are missing. Please reload and try again.");
+      return null;
+    }
+
     if (!normalizedForeignLanguage || !normalizedLocalLanguage) {
-      setError("Arabic word and meaning are required.");
+      setError("Foreign and local terms are required.");
       return null;
     }
 
@@ -48,6 +65,8 @@ export default function FlashcardEditForm({
       id: initialCard?.id ?? 0,
       foreignLanguage: normalizedForeignLanguage,
       localLanguage: normalizedLocalLanguage,
+      foreignLanguageCode,
+      localLanguageCode,
       synonyms: normalizedSynonyms.length ? normalizedSynonyms : null,
       annotation: normalizedAnnotation.length ? normalizedAnnotation : null
     };
@@ -70,7 +89,9 @@ export default function FlashcardEditForm({
     <View style={styles.overlay} pointerEvents="box-none">
       <View style={styles.backdrop} />
       <View style={styles.form}>
-        <Text style={styles.label}>Arabic (fully vocalized)</Text>
+        <Text style={styles.label}>
+          {formatLabel("Foreign term", foreignLanguageCode)}
+        </Text>
         <TextInput
           value={foreignLanguage}
           onChangeText={setForeignLanguage}
@@ -81,7 +102,9 @@ export default function FlashcardEditForm({
           autoCorrect={false}
         />
 
-        <Text style={styles.label}>Meaning</Text>
+        <Text style={styles.label}>
+          {formatLabel("Local term", localLanguageCode)}
+        </Text>
         <TextInput
           value={localLanguage}
           onChangeText={setLocalLanguage}

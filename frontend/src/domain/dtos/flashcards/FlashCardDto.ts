@@ -3,6 +3,8 @@ export type FlashCardDto = {
   id: number;
   foreignLanguage: string;
   localLanguage: string;
+  foreignLanguageCode: string;
+  localLanguageCode: string;
   synonyms?: string | null;
   annotation?: string | null;
   box: number;

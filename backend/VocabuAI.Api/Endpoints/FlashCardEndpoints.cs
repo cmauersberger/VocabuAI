@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
@@ -26,11 +27,18 @@ public static class FlashCardEndpoints
                 if (validationError is not null)
                     return Results.BadRequest(new { message = validationError });
 
+                if (!TryNormalizeLanguageCode(request.ForeignLanguageCode, out var foreignCode, out var codeError))
+                    return Results.BadRequest(new { message = codeError });
+                if (!TryNormalizeLanguageCode(request.LocalLanguageCode, out var localCode, out codeError))
+                    return Results.BadRequest(new { message = codeError });
+
                 var flashCard = new FlashCardDb
                 {
                     UserId = userId,
                     ForeignLanguage = request.ForeignLanguage.Trim(),
                     LocalLanguage = request.LocalLanguage.Trim(),
+                    ForeignLanguageCode = foreignCode,
+                    LocalLanguageCode = localCode,
                     Synonyms = request.Synonyms?.Trim(),
                     Annotation = request.Annotation?.Trim()
                 };
@@ -58,9 +66,20 @@ public static class FlashCardEndpoints
                 if (validationError is not null)
                     return Results.BadRequest(new { message = validationError });
 
+                if (!TryNormalizeLanguageCode(request.ForeignLanguageCode, out var foreignCode, out var codeError))
+                    return Results.BadRequest(new { message = codeError });
+                if (!TryNormalizeLanguageCode(request.LocalLanguageCode, out var localCode, out codeError))
+                    return Results.BadRequest(new { message = codeError });
+
                 var flashCard = repository.GetByIdWithLearningStateAndUserId(id, userId);
                 if (flashCard is null)
                     return Results.NotFound();
+
+                if (!string.Equals(flashCard.ForeignLanguageCode, foreignCode, StringComparison.Ordinal)
+                    || !string.Equals(flashCard.LocalLanguageCode, localCode, StringComparison.Ordinal))
+                {
+                    return Results.BadRequest(new { message = "Language codes cannot be changed for existing flashcards." });
+                }
 
                 flashCard.ForeignLanguage = request.ForeignLanguage.Trim();
                 flashCard.LocalLanguage = request.LocalLanguage.Trim();
@@ -123,6 +142,8 @@ public static class FlashCardEndpoints
             entity.Id,
             entity.ForeignLanguage,
             entity.LocalLanguage,
+            entity.ForeignLanguageCode,
+            entity.LocalLanguageCode,
             entity.Synonyms,
             entity.Annotation,
             entity.LearningState?.Box ?? 1,
@@ -130,4 +151,65 @@ public static class FlashCardEndpoints
             entity.DateTimeCreated,
             entity.DateTimeUpdated
         );
+
+    private static bool TryNormalizeLanguageCode(string? value, out string normalized, out string error)
+    {
+        normalized = value?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            error = "Language code is required.";
+            return false;
+        }
+
+        try
+        {
+            if (IsInvariantGlobalization())
+            {
+                if (!IsBasicLanguageCode(normalized))
+                {
+                    error = "Language code is invalid.";
+                    return false;
+                }
+            }
+            else
+            {
+                normalized = CultureInfo.GetCultureInfo(normalized).Name;
+            }
+        }
+        catch (CultureNotFoundException)
+        {
+            error = "Language code is invalid.";
+            return false;
+        }
+
+        error = "";
+        return true;
+    }
+
+    private static bool IsInvariantGlobalization()
+        => AppContext.TryGetSwitch("System.Globalization.Invariant", out var invariant) && invariant;
+
+    private static bool IsBasicLanguageCode(string value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            var ch = value[i];
+            var isAlphaNum = (ch >= 'a' && ch <= 'z')
+                || (ch >= 'A' && ch <= 'Z')
+                || (ch >= '0' && ch <= '9');
+            if (isAlphaNum)
+            {
+                continue;
+            }
+
+            if (ch == '-' && i > 0 && i < value.Length - 1)
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
 }

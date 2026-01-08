@@ -3,6 +3,8 @@ export type FlashCardEditDto = {
   id: number;
   foreignLanguage: string;
   localLanguage: string;
+  foreignLanguageCode: string;
+  localLanguageCode: string;
   synonyms?: string | null;
   annotation?: string | null;
 };
