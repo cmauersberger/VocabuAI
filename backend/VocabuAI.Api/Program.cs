@@ -167,11 +167,12 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.Migrate();
 }
 
-app.MapHealthEndpoints(app.Environment.ApplicationName);
-app.MapAuthEndpoints();
-app.MapUserEndpoints();
-app.MapFlashCardEndpoints();
-app.MapLearningSessionEndpoints();
+var api = app.MapGroup("/api");
+api.MapHealthEndpoints(app.Environment.ApplicationName);
+api.MapAuthEndpoints();
+api.MapUserEndpoints();
+api.MapFlashCardEndpoints();
+api.MapLearningSessionEndpoints();
 
 app.Run();
 

@@ -13,7 +13,7 @@ public static class FlashCardEndpoints
 {
     public static void MapFlashCardEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/flashcards");
+        var group = app.MapGroup("/flashcards");
         group.RequireAuthorization();
 
         group.MapPost("/createFlashCard", (FlashCardEditDto request, ClaimsPrincipal user, IFlashCardRepository repository) =>
