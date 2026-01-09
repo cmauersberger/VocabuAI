@@ -50,7 +50,7 @@ export default function SettingsPage({
     setIsLoading(true);
     setStatus("Loading user settings...");
     try {
-      const response = await fetch(`${apiBaseUrl}/api/users/GetUserSettings`, {
+      const response = await fetch(`${apiBaseUrl}/users/settings`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
@@ -91,7 +91,7 @@ export default function SettingsPage({
     setIsSaving(true);
     setStatus("Saving user settings...");
     try {
-      const response = await fetch(`${apiBaseUrl}/api/users/UpdateUserSettings`, {
+      const response = await fetch(`${apiBaseUrl}/users/settings`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -120,12 +120,9 @@ export default function SettingsPage({
     setIsSeedingSamples(target);
     setSampleStatus(`Creating sample flashcards DE->${target.toUpperCase()}...`);
     try {
-      const endpoint =
-        target === "en"
-          ? "createSampleFlashCardsDeToEn"
-          : "createSampleFlashCardsDeToFr";
+      const endpoint = target === "en" ? "de-to-en" : "de-to-fr";
       const response = await fetch(
-        `${apiBaseUrl}/api/flashcards/${endpoint}`,
+        `${apiBaseUrl}/flashcards/samples/${endpoint}`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` }

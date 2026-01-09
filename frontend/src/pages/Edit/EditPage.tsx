@@ -53,7 +53,7 @@ export default function EditPage({ authToken }: Props) {
 
   const loadUserSettings = React.useCallback(async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/api/users/GetUserSettings`, {
+      const response = await fetch(`${apiBaseUrl}/users/settings`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
@@ -72,7 +72,7 @@ export default function EditPage({ authToken }: Props) {
   const loadCards = React.useCallback(async () => {
     setStatus("Loading...");
     try {
-      const response = await fetch(`${apiBaseUrl}/api/flashcards/getFlashCards`, {
+      const response = await fetch(`${apiBaseUrl}/flashcards/list`, {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
@@ -114,8 +114,8 @@ export default function EditPage({ authToken }: Props) {
     try {
       const response = await fetch(
         editingId
-          ? `${apiBaseUrl}/api/flashcards/updateFlashCard/${editingId}`
-          : `${apiBaseUrl}/api/flashcards/createFlashCard`,
+          ? `${apiBaseUrl}/flashcards/update/${editingId}`
+          : `${apiBaseUrl}/flashcards/create`,
         {
           method: editingId ? "PUT" : "POST",
           headers: {
@@ -162,12 +162,9 @@ export default function EditPage({ authToken }: Props) {
     setIsSeeding(target);
     setStatus(`Creating sample flashcards DE->${target.toUpperCase()}...`);
     try {
-      const endpoint =
-        target === "en"
-          ? "createSampleFlashCardsDeToEn"
-          : "createSampleFlashCardsDeToFr";
+      const endpoint = target === "en" ? "de-to-en" : "de-to-fr";
       const response = await fetch(
-        `${apiBaseUrl}/api/flashcards/${endpoint}`,
+        `${apiBaseUrl}/flashcards/samples/${endpoint}`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` }

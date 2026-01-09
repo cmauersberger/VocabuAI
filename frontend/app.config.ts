@@ -1,5 +1,11 @@
 import type { ExpoConfig } from "expo/config";
 
+declare const process: {
+  env?: Record<string, string | undefined>;
+};
+
+const apiBaseUrl = process.env?.EXPO_PUBLIC_API_BASE ?? "http://localhost:5080";
+
 const config: ExpoConfig = {
   name: "VocabuAI",
   slug: "vocabuai",
@@ -15,9 +21,8 @@ const config: ExpoConfig = {
     package: "com.example.vocabuai"
   },
   extra: {
-    apiBaseUrl: "http://localhost:5080"
+    apiBaseUrl
   }
 };
 
 export default config;
-

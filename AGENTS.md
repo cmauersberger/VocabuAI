@@ -13,6 +13,7 @@
 ## Naming and endpoints
 - Prefer explicit, descriptive routes (do not rely solely on HTTP verbs).
 - Use Minimal API mappings (no controllers).
+- Use kebab-case for route segments (example: /api/learning-session/flashcard-answered).
 
 ## Data access
 - Keep query logic in repositories, not in endpoints.

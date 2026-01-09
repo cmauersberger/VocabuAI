@@ -16,7 +16,7 @@ public static class FlashCardEndpoints
         var group = app.MapGroup("/flashcards");
         group.RequireAuthorization();
 
-        group.MapPost("/createFlashCard", (FlashCardEditDto request, ClaimsPrincipal user, IFlashCardRepository repository) =>
+        group.MapPost("/create", (FlashCardEditDto request, ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -47,15 +47,12 @@ public static class FlashCardEndpoints
                 repository.Add(flashCard);
                 repository.SaveChanges();
 
-                return Results.Created(
-                    "/api/flashcards/getFlashCards",
-                    ToDto(flashCard)
-                );
+                return Results.Created("/api/flashcards/list", ToDto(flashCard));
             })
             .WithTags("FlashCards")
             .WithName("CreateFlashCard");
 
-        group.MapPut("/updateFlashCard/{id:int}", (int id, FlashCardEditDto request, ClaimsPrincipal user, IFlashCardRepository repository) =>
+        group.MapPut("/update/{id:int}", (int id, FlashCardEditDto request, ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -95,7 +92,7 @@ public static class FlashCardEndpoints
             .WithTags("FlashCards")
             .WithName("UpdateFlashCard");
 
-        group.MapGet("/getFlashCards", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+        group.MapGet("/list", (ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -109,7 +106,7 @@ public static class FlashCardEndpoints
             .WithTags("FlashCards")
             .WithName("GetFlashCards");
 
-        group.MapGet("/getFlashCardCountPerBox", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+        group.MapGet("/count-per-box", (ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -120,7 +117,7 @@ public static class FlashCardEndpoints
             .WithTags("FlashCards")
             .WithName("GetFlashCardCountPerBox");
 
-        group.MapPost("/createSampleFlashCardsDeToEn", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+        group.MapPost("/samples/de-to-en", (ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -146,7 +143,7 @@ public static class FlashCardEndpoints
             .WithTags("FlashCards")
             .WithName("CreateSampleFlashCardsDeToEn");
 
-        group.MapPost("/createSampleFlashCardsDeToFr", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+        group.MapPost("/samples/de-to-fr", (ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();

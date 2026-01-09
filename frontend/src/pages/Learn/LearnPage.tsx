@@ -98,7 +98,7 @@ export default function LearnPage({
       try {
         await Promise.all(
           flashCardIds.map((flashCardId) =>
-            fetch(`${apiBaseUrl}/learning-session/flashcardAnswered`, {
+            fetch(`${apiBaseUrl}/learning-session/flashcard-answered`, {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${authToken}`,
@@ -128,7 +128,7 @@ export default function LearnPage({
   const loadBoxCounts = React.useCallback(async () => {
     try {
       const response = await fetch(
-        `${apiBaseUrl}/api/flashcards/getFlashCardCountPerBox`,
+        `${apiBaseUrl}/flashcards/count-per-box`,
         {
           method: "GET",
           headers: {
@@ -180,7 +180,7 @@ export default function LearnPage({
     setIncorrectAnswers(0);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/learningSession/create`, {
+      const response = await fetch(`${apiBaseUrl}/learning-session/create`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${authToken}`,

@@ -124,7 +124,7 @@ export default function AuthPage({ onAuthenticated }: Props) {
     setStatus({ text: "Creating account...", tone: "info" });
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/users/CreateUser`, {
+      const response = await fetch(`${apiBaseUrl}/users/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

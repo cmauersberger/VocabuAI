@@ -1,16 +1,15 @@
-import { Platform } from "react-native";
-
-const WEB_DEV_API_BASE_URL = "http://localhost:5080";
+import Constants from "expo-constants";
 
 export const getApiBaseUrl = (): string => {
-  if (Platform.OS === "web" && typeof __DEV__ !== "undefined" && __DEV__) {
-    return WEB_DEV_API_BASE_URL;
+  const apiBaseUrl = Constants.expoConfig?.extra?.apiBaseUrl;
+  if (!apiBaseUrl || typeof apiBaseUrl !== "string") {
+    throw new Error("apiBaseUrl is not configured. Set EXPO_PUBLIC_API_BASE.");
   }
 
-  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE;
-  if (!apiBaseUrl) {
-    throw new Error("EXPO_PUBLIC_API_BASE is not set.");
+  const trimmed = apiBaseUrl.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    throw new Error("apiBaseUrl is empty. Set EXPO_PUBLIC_API_BASE.");
   }
 
-  return apiBaseUrl;
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 };

@@ -13,11 +13,8 @@ public static class LearningSessionEndpoints
 {
     public static void MapLearningSessionEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/learningSession");
+        var group = app.MapGroup("/learning-session");
         group.RequireAuthorization();
-
-        var hyphenatedGroup = app.MapGroup("/learning-session");
-        hyphenatedGroup.RequireAuthorization();
 
         group.MapPost("/create", (
                 LearningSessionCreateRequest request,
@@ -56,7 +53,7 @@ public static class LearningSessionEndpoints
             .WithTags("LearningSessions")
             .WithName("CreateLearningSession");
 
-        hyphenatedGroup.MapPost("/flashcardAnswered", (
+        group.MapPost("/flashcard-answered", (
                 FlashCardAnsweredRequest request,
                 ClaimsPrincipal user,
                 IFlashCardRepository flashCardRepository,

@@ -17,7 +17,7 @@ public static class UserEndpoints
 
     public static void MapUserEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/users/CreateUser", (
+        app.MapPost("/users/create", (
                 CreateUserRequest request,
                 IUserRepository users,
                 IPasswordHasher<UserDb> hasher,
@@ -69,14 +69,14 @@ public static class UserEndpoints
                 }
 
                 var response = new UserResponse(user.Id, user.Email, user.UserName, user.DateTimeCreated, user.DateTimeUpdated);
-                return Results.Created($"/api/users/GetUser/{user.Id}", response);
+                return Results.Created($"/api/users/{user.Id}", response);
             })
             .AllowAnonymous()
             .WithTags("Users")
             .WithName("CreateUser")
             .RequireRateLimiting("signup");
 
-        app.MapPut("/users/UpdateUser/{id:int}", (int id, UpdateUserRequest request, IUserRepository users, IPasswordHasher<UserDb> hasher) =>
+        app.MapPut("/users/update-user/{id:int}", (int id, UpdateUserRequest request, IUserRepository users, IPasswordHasher<UserDb> hasher) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Email) &&
                     string.IsNullOrWhiteSpace(request.Password) &&
@@ -129,7 +129,7 @@ public static class UserEndpoints
             .WithTags("Users")
             .WithName("UpdateUser");
 
-        app.MapGet("/users/GetUserSettings", (ClaimsPrincipal user, IUserRepository users) =>
+        app.MapGet("/users/settings", (ClaimsPrincipal user, IUserRepository users) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -148,7 +148,7 @@ public static class UserEndpoints
             .WithTags("Users")
             .WithName("GetUserSettings");
 
-        app.MapPut("/users/UpdateUserSettings", (UserSettingsDto request, ClaimsPrincipal user, IUserRepository users) =>
+        app.MapPut("/users/settings", (UserSettingsDto request, ClaimsPrincipal user, IUserRepository users) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
