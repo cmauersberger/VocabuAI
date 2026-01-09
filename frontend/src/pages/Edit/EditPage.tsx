@@ -11,6 +11,7 @@ import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 
 type Props = {
   authToken: string;
+  onAuthFailure?: () => void;
 };
 
 const MAX_BOX = 5;
@@ -24,8 +25,16 @@ type SortKey =
 type SortDirection = "asc" | "desc";
 type SortState = { key: SortKey; direction: SortDirection } | null;
 
-export default function EditPage({ authToken }: Props) {
+const isAuthFailureResponse = (response: Response) =>
+  response.status === 401 || response.status === 403;
+
+export default function EditPage({ authToken, onAuthFailure }: Props) {
   const apiBaseUrl = getApiBaseUrl();
+  const handleAuthFailure = React.useCallback(() => {
+    if (!onAuthFailure) return false;
+    onAuthFailure();
+    return true;
+  }, [onAuthFailure]);
 
   const [cards, setCards] = React.useState<FlashCardDto[]>([]);
   const [userSettings, setUserSettings] = React.useState<UserSettingsDto | null>(
@@ -57,6 +66,9 @@ export default function EditPage({ authToken }: Props) {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to load user settings.");
         return;
@@ -65,9 +77,10 @@ export default function EditPage({ authToken }: Props) {
       const payload = (await response.json()) as UserSettingsDto;
       setUserSettings(payload);
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     }
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
 
   const loadCards = React.useCallback(async () => {
     setStatus("Loading...");
@@ -76,6 +89,9 @@ export default function EditPage({ authToken }: Props) {
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to load flashcards.");
         return;
@@ -85,9 +101,10 @@ export default function EditPage({ authToken }: Props) {
       setCards(payload);
       setStatus(null);
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     }
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
 
   React.useEffect(() => {
     loadCards();
@@ -126,6 +143,9 @@ export default function EditPage({ authToken }: Props) {
         }
       );
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to save flashcard.");
         return;
@@ -146,6 +166,7 @@ export default function EditPage({ authToken }: Props) {
         setFormResetKey((prev) => prev + 1);
       }
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     }
   };
@@ -171,6 +192,9 @@ export default function EditPage({ authToken }: Props) {
         }
       );
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to create sample flashcards.");
         return;
@@ -179,6 +203,7 @@ export default function EditPage({ authToken }: Props) {
       await loadCards();
       setStatus(null);
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     } finally {
       setIsSeeding(null);

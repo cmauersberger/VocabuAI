@@ -38,12 +38,12 @@ export default function App() {
     settings: "Settings"
   };
 
-  const handleAuthenticated = (result: AuthState) => {
+  const handleAuthenticated = React.useCallback((result: AuthState) => {
     setAuth(result);
     setActiveTab("home");
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = React.useCallback(() => {
     setAuth({
       token: null,
       email: null,
@@ -53,14 +53,31 @@ export default function App() {
     });
     setIsLearningSessionActive(false);
     setActiveTab("home");
-  };
+  }, []);
+
+  React.useEffect(() => {
+    if (!auth.token || !auth.expiresAt) return;
+    const remainingMs = auth.expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      handleLogout();
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      handleLogout();
+    }, remainingMs);
+
+    return () => clearTimeout(timeoutId);
+  }, [auth.expiresAt, auth.token, handleLogout]);
 
   const pageByTab: Record<TabKey, React.ReactNode> = {
     home: <HomePage userName={auth.userName} />,
-    edit: <EditPage authToken={auth.token as string} />,
+    edit: (
+      <EditPage authToken={auth.token as string} onAuthFailure={handleLogout} />
+    ),
     learn: (
       <LearnPage
         authToken={auth.token as string}
+        onAuthFailure={handleLogout}
         onSessionActiveChange={setIsLearningSessionActive}
         onExitToOverview={() => setActiveTab("home")}
       />
@@ -72,6 +89,7 @@ export default function App() {
         authToken={auth.token as string}
         issuedAt={auth.issuedAt}
         expiresAt={auth.expiresAt}
+        onAuthFailure={handleLogout}
         onLogout={handleLogout}
       />
     )

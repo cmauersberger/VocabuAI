@@ -23,6 +23,7 @@ import { LearningTaskType } from "../../domain/LearningTaskType";
 
 type Props = {
   authToken: string;
+  onAuthFailure?: () => void;
   onSessionActiveChange?: (active: boolean) => void;
   onExitToOverview?: () => void;
 };
@@ -41,12 +42,21 @@ type MappingAnswerResult = { flashCardId: number; isCorrect: boolean };
 const DEFAULT_TASK_COUNT = 6;
 const IGNORE_VOCALIZATION = true;
 
+const isAuthFailureResponse = (response: Response) =>
+  response.status === 401 || response.status === 403;
+
 export default function LearnPage({
   authToken,
+  onAuthFailure,
   onSessionActiveChange,
   onExitToOverview
 }: Props) {
   const apiBaseUrl = getApiBaseUrl();
+  const handleAuthFailure = React.useCallback(() => {
+    if (!onAuthFailure) return false;
+    onAuthFailure();
+    return true;
+  }, [onAuthFailure]);
 
   const [session, setSession] = React.useState<LearningSession | null>(null);
   const [tasks, setTasks] = React.useState<LearningTask[]>([]);
@@ -96,7 +106,7 @@ export default function LearnPage({
       if (flashCardIds.length === 0) return;
 
       try {
-        await Promise.all(
+        const responses = await Promise.all(
           flashCardIds.map((flashCardId) =>
             fetch(`${apiBaseUrl}/learning-session/flashcard-answered`, {
               method: "POST",
@@ -118,11 +128,14 @@ export default function LearnPage({
             })
           )
         );
+        if (responses.some(isAuthFailureResponse)) {
+          handleAuthFailure();
+        }
       } catch {
-        // Ignore answer sync failures to avoid blocking the learning flow.
+        handleAuthFailure();
       }
     },
-    [apiBaseUrl, authToken]
+    [apiBaseUrl, authToken, handleAuthFailure]
   );
 
   const loadBoxCounts = React.useCallback(async () => {
@@ -137,13 +150,17 @@ export default function LearnPage({
         }
       );
 
+      if (isAuthFailureResponse(response)) {
+        handleAuthFailure();
+        return;
+      }
       if (!response.ok) return;
       const payload = (await response.json()) as Record<string, number>;
       setBoxCounts(payload);
     } catch {
-      // Ignore box count errors to avoid blocking the learning screen.
+      handleAuthFailure();
     }
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
 
   React.useEffect(() => {
     if (!session) {
@@ -189,6 +206,9 @@ export default function LearnPage({
         body: JSON.stringify({ taskCount: DEFAULT_TASK_COUNT })
       });
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to start learning.");
         return;
@@ -203,6 +223,7 @@ export default function LearnPage({
       setStatus(null);
       onSessionActiveChange?.(true);
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     }
   };

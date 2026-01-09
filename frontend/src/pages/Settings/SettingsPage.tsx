@@ -5,12 +5,16 @@ import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { LANGUAGE_OPTIONS } from "./languageOptions";
 
+const isAuthFailureResponse = (response: Response) =>
+  response.status === 401 || response.status === 403;
+
 type Props = {
   email: string | null;
   userName: string | null;
   authToken: string;
   issuedAt?: number;
   expiresAt?: number;
+  onAuthFailure?: () => void;
   onLogout: () => void;
 };
 
@@ -20,9 +24,15 @@ export default function SettingsPage({
   authToken,
   issuedAt,
   expiresAt,
+  onAuthFailure,
   onLogout
 }: Props) {
   const apiBaseUrl = getApiBaseUrl();
+  const handleAuthFailure = React.useCallback(() => {
+    if (!onAuthFailure) return false;
+    onAuthFailure();
+    return true;
+  }, [onAuthFailure]);
   const [settings, setSettings] = React.useState<UserSettingsDto | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -54,6 +64,9 @@ export default function SettingsPage({
         headers: { Authorization: `Bearer ${authToken}` }
       });
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to load user settings.");
         return;
@@ -63,11 +76,12 @@ export default function SettingsPage({
       setSettings(payload);
       setStatus(null);
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, authToken]);
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
 
   React.useEffect(() => {
     loadSettings();
@@ -100,6 +114,9 @@ export default function SettingsPage({
         body: JSON.stringify(settings)
       });
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setStatus("Unable to save user settings.");
         return;
@@ -110,6 +127,7 @@ export default function SettingsPage({
       setStatus("User settings saved.");
       setActiveMenu(null);
     } catch (error) {
+      if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
     } finally {
       setIsSaving(false);
@@ -129,6 +147,9 @@ export default function SettingsPage({
         }
       );
 
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
       if (!response.ok) {
         setSampleStatus("Unable to create sample flashcards.");
         return;
@@ -136,6 +157,7 @@ export default function SettingsPage({
 
       setSampleStatus("Sample flashcards created.");
     } catch (error) {
+      if (handleAuthFailure()) return;
       setSampleStatus("Unable to reach the API.");
     } finally {
       setIsSeedingSamples(null);
