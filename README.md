@@ -91,6 +91,18 @@ cd frontend
 npm run android
 ```
 
+### Deploy (Web)
+
+The web build is static and bakes the API base URL at build time.
+
+```bash
+cd frontend
+docker build -t vocabuai-frontend .
+docker run -p 8080:80 vocabuai-frontend
+```
+
+The Dockerfile sets `EXPO_PUBLIC_API_BASE` to `https://vocabuai.fryy.de/api` for the production build.
+
 ### Test on an Android phone (Expo Go)
 
 Prereqs (one-time):

@@ -13,7 +13,11 @@ export const getApiBaseUrl = (): string => {
     throw new Error("apiBaseUrl is not configured. Set EXPO_PUBLIC_API_BASE.");
   }
 
-  const trimmed = apiBaseUrl.trim().replace(/\/+$/, "");
+  return normalizeApiBase(apiBaseUrl);
+};
+
+const normalizeApiBase = (value: string): string => {
+  const trimmed = value.trim().replace(/\/+$/, "");
   if (!trimmed) {
     throw new Error("apiBaseUrl is empty. Set EXPO_PUBLIC_API_BASE.");
   }
