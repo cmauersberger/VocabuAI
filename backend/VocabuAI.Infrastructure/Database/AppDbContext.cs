@@ -118,8 +118,16 @@ public sealed class AppDbContext : DbContext
         {
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.DateTimeCreated = now;
-                entry.Entity.DateTimeUpdated = now;
+                // Preserve imported timestamps when restoring backups; only set defaults when missing.
+                if (entry.Entity.DateTimeCreated == default)
+                {
+                    entry.Entity.DateTimeCreated = now;
+                }
+
+                if (entry.Entity.DateTimeUpdated == default)
+                {
+                    entry.Entity.DateTimeUpdated = now;
+                }
             }
             else if (entry.State == EntityState.Modified)
             {

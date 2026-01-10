@@ -1,6 +1,17 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import Button from "../../components/Button";
+import type { FlashCardImportResultDto } from "../../domain/dtos/flashcards/FlashCardImportResultDto";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { LANGUAGE_OPTIONS } from "./languageOptions";
@@ -38,6 +49,9 @@ export default function SettingsPage({
   const [isSaving, setIsSaving] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
   const [sampleStatus, setSampleStatus] = React.useState<string | null>(null);
+  const [backupStatus, setBackupStatus] = React.useState<string | null>(null);
+  const [isExportingBackup, setIsExportingBackup] = React.useState(false);
+  const [isImportingBackup, setIsImportingBackup] = React.useState(false);
   const [isSeedingSamples, setIsSeedingSamples] = React.useState<
     null | "en" | "fr"
   >(null);
@@ -161,6 +175,164 @@ export default function SettingsPage({
       setSampleStatus("Unable to reach the API.");
     } finally {
       setIsSeedingSamples(null);
+    }
+  };
+
+  const formatImportMessage = (result: FlashCardImportResultDto) => {
+    if (
+      result.errors.length > 0 &&
+      result.importedFlashcardsCount > 0 &&
+      result.importedLearningStatesCount < result.importedFlashcardsCount
+    ) {
+      return `Flashcards imported, learning state partially failed. Imported flashcards: ${result.importedFlashcardsCount}.`;
+    }
+
+    if (result.errors.length > 0) {
+      return "Import completed with errors.";
+    }
+
+    return result.importedFlashcardsCount > 0
+      ? `Import successful. Imported flashcards: ${result.importedFlashcardsCount}.`
+      : "Import successful.";
+  };
+
+  const exportFlashcards = async () => {
+    setIsExportingBackup(true);
+    setBackupStatus("Exporting flashcards...");
+    try {
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(
+        now.getHours()
+      ).padStart(2, "0")}_${String(now.getMinutes()).padStart(2, "0")}`;
+
+      if (Platform.OS === "web") {
+        const response = await fetch(
+          `${apiBaseUrl}/flashcards/backup/export`,
+          {
+            headers: { Authorization: `Bearer ${authToken}` }
+          }
+        );
+
+        if (isAuthFailureResponse(response)) {
+          if (handleAuthFailure()) return;
+        }
+        if (!response.ok) {
+          setBackupStatus("Unable to export flashcards.");
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `vocabuai-backup-${timestamp}.vocabuai`;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        setBackupStatus("Export ready.");
+        return;
+      }
+
+      const fileName = `vocabuai-backup-${timestamp}.vocabuai`;
+      if (!FileSystem.cacheDirectory) {
+        setBackupStatus("Unable to export flashcards.");
+        return;
+      }
+
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const downloadResult = await FileSystem.downloadAsync(
+        `${apiBaseUrl}/flashcards/backup/export`,
+        fileUri,
+        {
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (downloadResult.status === 401 || downloadResult.status === 403) {
+        if (handleAuthFailure()) return;
+      }
+      if (downloadResult.status !== 200) {
+        setBackupStatus("Unable to export flashcards.");
+        return;
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(downloadResult.uri);
+      }
+
+      setBackupStatus("Export ready.");
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setBackupStatus("Unable to reach the API.");
+    } finally {
+      setIsExportingBackup(false);
+    }
+  };
+
+  const importFlashcards = async () => {
+    setIsImportingBackup(true);
+    setBackupStatus("Select a backup file...");
+    try {
+      const pickerResult = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+
+      if (pickerResult.canceled) {
+        setBackupStatus(null);
+        return;
+      }
+
+      const asset = pickerResult.assets?.[0];
+      if (!asset) {
+        setBackupStatus("No file selected.");
+        return;
+      }
+
+      const fileName = asset.name ?? "backup.vocabuai";
+      if (!fileName.toLowerCase().endsWith(".vocabuai")) {
+        setBackupStatus("Please select a .vocabuai file.");
+        return;
+      }
+
+      const formData = new FormData();
+      const assetFile = (asset as { file?: File }).file;
+      if (assetFile) {
+        formData.append("file", assetFile, fileName);
+      } else {
+        formData.append("file", {
+          uri: asset.uri,
+          name: fileName,
+          type: asset.mimeType ?? "application/json"
+        } as unknown as Blob);
+      }
+
+      const response = await fetch(
+        `${apiBaseUrl}/flashcards/backup/import`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+          body: formData
+        }
+      );
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        setBackupStatus("Unable to import flashcards.");
+        return;
+      }
+
+      const payload = (await response.json()) as FlashCardImportResultDto;
+      setBackupStatus(formatImportMessage(payload));
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setBackupStatus("Unable to reach the API.");
+    } finally {
+      setIsImportingBackup(false);
     }
   };
 
@@ -292,6 +464,28 @@ export default function SettingsPage({
           onClick={saveSettings}
           disabled={isSaving || isLoading || !settings}
         />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Flashcard backup</Text>
+        <Text style={styles.explanation}>
+          Export or import your flashcards and learning state.
+        </Text>
+        {backupStatus ? <Text style={styles.status}>{backupStatus}</Text> : null}
+        <View style={styles.sampleButtons}>
+          <Button
+            label={isExportingBackup ? "Exporting..." : "Export Flashcards"}
+            onClick={exportFlashcards}
+            style={styles.emptyButton}
+            disabled={isExportingBackup || isImportingBackup}
+          />
+          <Button
+            label={isImportingBackup ? "Importing..." : "Import Flashcards"}
+            onClick={importFlashcards}
+            style={styles.emptyButton}
+            disabled={isExportingBackup || isImportingBackup}
+          />
+        </View>
       </View>
 
       <View style={styles.card}>
