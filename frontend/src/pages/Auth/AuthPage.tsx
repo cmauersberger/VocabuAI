@@ -153,6 +153,26 @@ export default function AuthPage({ onAuthenticated }: Props) {
     }
   };
 
+  const handleSubmit = (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    if (mode === "login") {
+      void handleLogin();
+    } else {
+      void handleSignup();
+    }
+  };
+
+  const webFormStyle =
+    Platform.OS === "web"
+      ? {
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          padding: 20,
+          borderRadius: 12,
+          backgroundColor: "rgba(148, 163, 184, 0.08)"
+        }
+      : undefined;
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -172,8 +192,9 @@ export default function AuthPage({ onAuthenticated }: Props) {
         />
       </View>
 
-      <View style={styles.card}>
-        {mode === "signup" ? (
+      {Platform.OS === "web" ? (
+        <form style={webFormStyle} autoComplete="on" onSubmit={handleSubmit}>
+          {mode === "signup" ? (
           <TextInput
             value={userName}
             onChangeText={setUserName}
@@ -181,9 +202,13 @@ export default function AuthPage({ onAuthenticated }: Props) {
             placeholderTextColor="#64748B"
             style={styles.input}
             autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+            importantForAutofill="yes"
+            name="userName"
           />
-        ) : null}
-        {mode === "signup" ? (
+          ) : null}
+          {mode === "signup" ? (
           <TextInput
             value={inviteToken}
             onChangeText={setInviteToken}
@@ -192,10 +217,12 @@ export default function AuthPage({ onAuthenticated }: Props) {
             style={styles.input}
             autoCapitalize="none"
             autoCorrect={false}
-            secureTextEntry
+            textContentType="oneTimeCode"
+            importantForAutofill="no"
+            name="inviteToken"
           />
-        ) : null}
-        <TextInput
+          ) : null}
+          <TextInput
           value={email}
           onChangeText={setEmail}
           placeholder="you@example.com"
@@ -204,8 +231,12 @@ export default function AuthPage({ onAuthenticated }: Props) {
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
+          autoComplete={mode === "login" ? "username" : "email"}
+          textContentType="username"
+          importantForAutofill="yes"
+          name="email"
         />
-        <TextInput
+          <TextInput
           value={password}
           onChangeText={setPassword}
           placeholder="Password"
@@ -213,26 +244,107 @@ export default function AuthPage({ onAuthenticated }: Props) {
           style={styles.input}
           secureTextEntry
           autoCapitalize="none"
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          textContentType="password"
+          importantForAutofill="yes"
+          name="password"
         />
 
-        {status ? (
-          <Text style={[styles.status, styles[`status${status.tone}`]]}>
-            {status.text}
+          {status ? (
+            <Text style={[styles.status, styles[`status${status.tone}`]]}>
+              {status.text}
+            </Text>
+          ) : null}
+
+          <Button
+            label={mode === "login" ? "Sign In" : "Create User"}
+            onClick={handleSubmit}
+          />
+
+          <Text
+            style={styles.link}
+            onPress={() => setMode(mode === "login" ? "signup" : "login")}
+          >
+            {mode === "login" ? "Create new user" : "Back to login"}
           </Text>
-        ) : null}
+        </form>
+      ) : (
+        <View style={styles.card}>
+          {mode === "signup" ? (
+            <TextInput
+              value={userName}
+              onChangeText={setUserName}
+              placeholder="User name"
+              placeholderTextColor="#64748B"
+              style={styles.input}
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              importantForAutofill="yes"
+              name="userName"
+            />
+          ) : null}
+          {mode === "signup" ? (
+            <TextInput
+              value={inviteToken}
+              onChangeText={setInviteToken}
+              placeholder="Invite code"
+              placeholderTextColor="#64748B"
+              style={styles.input}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="oneTimeCode"
+              importantForAutofill="no"
+              name="inviteToken"
+            />
+          ) : null}
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            placeholderTextColor="#64748B"
+            style={styles.input}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            autoComplete={mode === "login" ? "username" : "email"}
+            textContentType="username"
+            importantForAutofill="yes"
+            name="email"
+          />
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Password"
+            placeholderTextColor="#64748B"
+            style={styles.input}
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            textContentType="password"
+            importantForAutofill="yes"
+            name="password"
+          />
 
-        <Button
-          label={mode === "login" ? "Sign In" : "Create User"}
-          onClick={mode === "login" ? handleLogin : handleSignup}
-        />
+          {status ? (
+            <Text style={[styles.status, styles[`status${status.tone}`]]}>
+              {status.text}
+            </Text>
+          ) : null}
 
-        <Text
-          style={styles.link}
-          onPress={() => setMode(mode === "login" ? "signup" : "login")}
-        >
-          {mode === "login" ? "Create new user" : "Back to login"}
-        </Text>
-      </View>
+          <Button
+            label={mode === "login" ? "Sign In" : "Create User"}
+            onClick={handleSubmit}
+          />
+
+          <Text
+            style={styles.link}
+            onPress={() => setMode(mode === "login" ? "signup" : "login")}
+          >
+            {mode === "login" ? "Create new user" : "Back to login"}
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
