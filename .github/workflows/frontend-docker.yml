@@ -32,3 +32,9 @@ jobs:
           file: frontend/Dockerfile # explicit frontend Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy
+        run: |
+          curl -X POST "${{ vars.DEPLOY_WEBHOOK_URL }}" \
+            -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}" \
+            --fail
