@@ -53,7 +53,8 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
         return counts;
     }
 
-    public (int CorrectCountTotal, int WrongCountTotal) GetAnswerTotalsByUserId(int userId)
+    public (int CorrectCountTotal, int WrongCountTotal, DateTimeOffset? LastAnsweredAt)
+        GetLearningStatisticsByUserId(int userId)
     {
         var totals = (from card in DbContext.FlashCards.AsNoTracking()
                 join state in DbContext.FlashCardLearningStates.AsNoTracking()
@@ -63,16 +64,20 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
                 select new
                 {
                     Correct = state == null ? 0 : state.CorrectCountTotal,
-                    Wrong = state == null ? 0 : state.WrongCountTotal
+                    Wrong = state == null ? 0 : state.WrongCountTotal,
+                    LastAnsweredAt = state == null ? null : state.LastAnsweredAt
                 })
             .GroupBy(_ => 1)
             .Select(group => new
             {
                 Correct = group.Sum(entry => entry.Correct),
-                Wrong = group.Sum(entry => entry.Wrong)
+                Wrong = group.Sum(entry => entry.Wrong),
+                LastAnsweredAt = group.Max(entry => entry.LastAnsweredAt)
             })
             .FirstOrDefault();
 
-        return totals is null ? (0, 0) : (totals.Correct, totals.Wrong);
+        return totals is null
+            ? (0, 0, null)
+            : (totals.Correct, totals.Wrong, totals.LastAnsweredAt);
     }
 }

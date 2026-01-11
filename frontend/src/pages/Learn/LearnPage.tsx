@@ -12,12 +12,13 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import { formatRelativeTime } from "../../infrastructure/formatRelativeTime";
 import type { FreeTextTaskPayload } from "../../domain/FreeTextTaskPayload";
 import type { LearningMappingItem } from "../../domain/LearningMappingItem";
 import type { LearningSession } from "../../domain/LearningSession";
 import type { LearningTask } from "../../domain/LearningTask";
 import type { MultipleChoiceTaskPayload } from "../../domain/MultipleChoiceTaskPayload";
-import type { FlashCardAnswerTotalsDto } from "../../domain/dtos/flashcards/FlashCardAnswerTotalsDto";
+import type { FlashCardLearningStatisticsDto } from "../../domain/dtos/flashcards/FlashCardLearningStatisticsDto";
 import { LearningLanguage } from "../../domain/LearningLanguage";
 import { LearningSelectionMode } from "../../domain/LearningSelectionMode";
 import { LearningTaskType } from "../../domain/LearningTaskType";
@@ -71,8 +72,8 @@ export default function LearnPage({
   const [boxCounts, setBoxCounts] = React.useState<Record<string, number> | null>(
     null
   );
-  const [answerTotals, setAnswerTotals] =
-    React.useState<FlashCardAnswerTotalsDto | null>(null);
+  const [learningStatistics, setLearningStatistics] =
+    React.useState<FlashCardLearningStatisticsDto | null>(null);
   const [totalAnswers, setTotalAnswers] = React.useState(0);
   const [incorrectAnswers, setIncorrectAnswers] = React.useState(0);
   const [feedback, setFeedback] = React.useState<null | {
@@ -165,10 +166,10 @@ export default function LearnPage({
     }
   }, [apiBaseUrl, authToken, handleAuthFailure]);
 
-  const loadAnswerTotals = React.useCallback(async () => {
+  const loadLearningStatistics = React.useCallback(async () => {
     try {
       const response = await fetch(
-        `${apiBaseUrl}/flashcards/answer-totals`,
+        `${apiBaseUrl}/flashcards/learning-statistics`,
         {
           method: "GET",
           headers: {
@@ -182,8 +183,8 @@ export default function LearnPage({
         return;
       }
       if (!response.ok) return;
-      const payload = (await response.json()) as FlashCardAnswerTotalsDto;
-      setAnswerTotals(payload);
+      const payload = (await response.json()) as FlashCardLearningStatisticsDto;
+      setLearningStatistics(payload);
     } catch {
       handleAuthFailure();
     }
@@ -192,9 +193,9 @@ export default function LearnPage({
   React.useEffect(() => {
     if (!session) {
       void loadBoxCounts();
-      void loadAnswerTotals();
+      void loadLearningStatistics();
     }
-  }, [loadAnswerTotals, loadBoxCounts, session]);
+  }, [loadLearningStatistics, loadBoxCounts, session]);
 
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
@@ -412,7 +413,9 @@ export default function LearnPage({
       <View style={styles.container}>
         <Text style={styles.title}>Learning</Text>
         {boxCounts ? <BoxOverview counts={boxCounts} /> : null}
-        {answerTotals ? <AnswerTotalsOverview totals={answerTotals} /> : null}
+        {learningStatistics ? (
+          <LearningStatisticsOverview statistics={learningStatistics} />
+        ) : null}
         {status ? <Text style={styles.status}>{status}</Text> : null}
         <Button
           label="Start learning"
@@ -578,29 +581,43 @@ function BoxOverview({ counts }: BoxOverviewProps) {
   );
 }
 
-type AnswerTotalsOverviewProps = {
-  totals: FlashCardAnswerTotalsDto;
+type LearningStatisticsOverviewProps = {
+  statistics: FlashCardLearningStatisticsDto;
 };
 
-function AnswerTotalsOverview({ totals }: AnswerTotalsOverviewProps) {
-  const totalAnswered = totals.correctCountTotal + totals.wrongCountTotal;
+function LearningStatisticsOverview({
+  statistics
+}: LearningStatisticsOverviewProps) {
+  const totalAnswered =
+    statistics.correctCountTotal + statistics.wrongCountTotal;
 
   return (
     <View style={styles.boxOverviewCard}>
       <View style={styles.boxOverviewRow}>
         <View style={styles.boxOverviewItem}>
           <Text style={styles.boxOverviewBox}>Correct</Text>
-          <Text style={styles.boxOverviewCount}>{totals.correctCountTotal}</Text>
+          <Text style={styles.boxOverviewCount}>
+            {statistics.correctCountTotal}
+          </Text>
         </View>
         <View style={styles.boxOverviewSeparator} />
         <View style={styles.boxOverviewItem}>
           <Text style={styles.boxOverviewBox}>Wrong</Text>
-          <Text style={styles.boxOverviewCount}>{totals.wrongCountTotal}</Text>
+          <Text style={styles.boxOverviewCount}>
+            {statistics.wrongCountTotal}
+          </Text>
         </View>
         <View style={styles.boxOverviewSeparator} />
         <View style={styles.boxOverviewItem}>
           <Text style={styles.boxOverviewBox}>Total answered</Text>
           <Text style={styles.boxOverviewCount}>{totalAnswered}</Text>
+        </View>
+        <View style={styles.boxOverviewSeparator} />
+        <View style={styles.boxOverviewItem}>
+          <Text style={styles.boxOverviewBox}>Last learned</Text>
+          <Text style={styles.boxOverviewCount}>
+            {formatRelativeTime(statistics.lastAnsweredAt)}
+          </Text>
         </View>
       </View>
     </View>

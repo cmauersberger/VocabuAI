@@ -9,5 +9,6 @@ public interface IFlashCardRepository : IRepository<FlashCardDb>
     FlashCardDb? GetByIdAndUserId(int id, int userId);
     FlashCardDb? GetByIdWithLearningStateAndUserId(int id, int userId);
     Dictionary<int, int> GetCountPerBoxByUserId(int userId);
-    (int CorrectCountTotal, int WrongCountTotal) GetAnswerTotalsByUserId(int userId);
+    (int CorrectCountTotal, int WrongCountTotal, DateTimeOffset? LastAnsweredAt)
+        GetLearningStatisticsByUserId(int userId);
 }
