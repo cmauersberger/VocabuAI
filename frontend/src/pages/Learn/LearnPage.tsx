@@ -1105,12 +1105,12 @@ const styles = StyleSheet.create({
   },
   questionText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600"
   },
   questionTextCentered: {
     color: "#FFFFFF",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
     textAlign: "center"
   },
@@ -1129,8 +1129,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.3)"
@@ -1152,7 +1152,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     color: "#E2E8F0",
-    fontSize: 15
+    fontSize: 17
   },
   mappingColumns: {
     flexDirection: "row",
@@ -1173,7 +1173,7 @@ const styles = StyleSheet.create({
   mappingItem: {
     backgroundColor: "rgba(15, 23, 42, 0.9)",
     borderRadius: 10,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.25)",
     gap: 4
@@ -1183,7 +1183,7 @@ const styles = StyleSheet.create({
   },
   mappingText: {
     color: "#FFFFFF",
-    fontSize: 16
+    fontSize: 18
   },
   mappingEmptyHint: {
     color: "#94A3B8",
@@ -1196,7 +1196,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 8,
-    padding: 8,
+    padding: 6,
     borderRadius: 12,
     backgroundColor: "rgba(56, 189, 248, 0.12)",
     borderWidth: 1,
@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
   },
   correctAnswerText: {
     color: "#FFFFFF",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
     textAlign: "center"
   },
