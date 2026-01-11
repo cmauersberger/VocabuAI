@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { FlashCardDto } from "../../domain/dtos/flashcards/FlashCardDto";
 import type { FlashCardEditDto } from "../../domain/dtos/flashcards/FlashCardEditDto";
 import Button from "../../components/Button";
@@ -309,6 +309,14 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
         />
       ) : null}
 
+      {isFilterOpen && Platform.OS !== "web" ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setIsFilterOpen(false)}
+          style={styles.filterBackdrop}
+        />
+      ) : null}
+
       <View style={styles.tableArea}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Flashcards</Text>
@@ -456,14 +464,6 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
           style={styles.centeredButton}
         />
       </View>
-
-      {isFilterOpen ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setIsFilterOpen(false)}
-          style={styles.filterBackdrop}
-        />
-      ) : null}
 
       <FlashcardView card={viewCard} onClose={() => setViewCard(null)} />
     </View>
