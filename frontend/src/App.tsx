@@ -70,7 +70,13 @@ export default function App() {
   }, [auth.expiresAt, auth.token, handleLogout]);
 
   const pageByTab: Record<TabKey, React.ReactNode> = {
-    home: <HomePage userName={auth.userName} />,
+    home: (
+      <HomePage
+        userName={auth.userName}
+        authToken={auth.token as string}
+        onAuthFailure={handleLogout}
+      />
+    ),
     edit: (
       <EditPage authToken={auth.token as string} onAuthFailure={handleLogout} />
     ),
