@@ -117,6 +117,18 @@ public static class FlashCardEndpoints
             .WithTags("FlashCards")
             .WithName("GetFlashCardCountPerBox");
 
+        group.MapGet("/answer-totals", (ClaimsPrincipal user, IFlashCardRepository repository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var (correctCountTotal, wrongCountTotal) =
+                    repository.GetAnswerTotalsByUserId(userId);
+                return Results.Ok(new FlashCardAnswerTotalsDto(correctCountTotal, wrongCountTotal));
+            })
+            .WithTags("FlashCards")
+            .WithName("GetFlashCardAnswerTotals");
+
         group.MapPost("/samples/de-to-en", (ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))

@@ -52,4 +52,27 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
 
         return counts;
     }
+
+    public (int CorrectCountTotal, int WrongCountTotal) GetAnswerTotalsByUserId(int userId)
+    {
+        var totals = (from card in DbContext.FlashCards.AsNoTracking()
+                join state in DbContext.FlashCardLearningStates.AsNoTracking()
+                    on card.Id equals state.FlashCardId into states
+                from state in states.DefaultIfEmpty()
+                where card.UserId == userId
+                select new
+                {
+                    Correct = state == null ? 0 : state.CorrectCountTotal,
+                    Wrong = state == null ? 0 : state.WrongCountTotal
+                })
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Correct = group.Sum(entry => entry.Correct),
+                Wrong = group.Sum(entry => entry.Wrong)
+            })
+            .FirstOrDefault();
+
+        return totals is null ? (0, 0) : (totals.Correct, totals.Wrong);
+    }
 }
