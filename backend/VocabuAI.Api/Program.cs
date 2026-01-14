@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Npgsql;
@@ -12,6 +13,7 @@ using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
+using VocabuAI.Infrastructure.Llm;
 using VocabuAI.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +53,9 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(o => !string.IsNullOrWhiteSpace(o.SigningKey) && o.SigningKey.Length >= 32, "Jwt:SigningKey must be at least 32 characters")
     .ValidateOnStart();
 
+builder.Services.AddOptions<LlmOptions>()
+    .Bind(builder.Configuration.GetSection(LlmOptions.SectionName));
+
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
@@ -66,7 +71,15 @@ builder.Services.AddScoped<IFlashCardLearningStateRepository, FlashCardLearningS
 builder.Services.AddScoped<FlashCardLearningProgressService>();
 builder.Services.AddScoped<FlashCardImportExportService>();
 builder.Services.AddScoped<ILearningSessionService, LearningSessionService>();
+builder.Services.AddScoped<LearningSessionAiService>();
 builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
+
+builder.Services.AddHttpClient<ILocalLlmClient, LocalLlmClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<LlmOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 var signingKeyBytes = Encoding.UTF8.GetBytes(jwt.SigningKey);
