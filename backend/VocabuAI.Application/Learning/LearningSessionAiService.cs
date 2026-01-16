@@ -11,11 +11,15 @@ namespace VocabuAI.Application.Learning;
 public sealed class LearningSessionAiService
 {
     private readonly ILocalLlmClient _llmClient;
+    private readonly IFlashCardVocabularyRepository _vocabularyRepository;
     private readonly TextGenerationValidator _validator = new();
 
-    public LearningSessionAiService(ILocalLlmClient llmClient)
+    public LearningSessionAiService(
+        ILocalLlmClient llmClient,
+        IFlashCardVocabularyRepository vocabularyRepository)
     {
         _llmClient = llmClient;
+        _vocabularyRepository = vocabularyRepository;
     }
 
     /// <summary>
@@ -30,33 +34,76 @@ public sealed class LearningSessionAiService
     /// <summary>
     /// Generates AI text based on the provided generation request contract.
     /// </summary>
-    public async Task<GeneratedText> GenerateText(TextGenerationRequest request, CancellationToken cancellationToken)
+    public async Task<GenerateTextResponseDto> GenerateTextAsync(
+        int userId,
+        GenerateTextRequestDto request,
+        CancellationToken cancellationToken)
     {
-        var prompt = BuildPrompt(request);
+        if (!TryGetLanguageCode(request.TargetLanguage, out var languageCode, out var errorMessage))
+        {
+            return new GenerateTextResponseDto(
+                request.TargetLanguage,
+                "",
+                false,
+                errorMessage);
+        }
+
+        var vocabulary = _vocabularyRepository
+            .GetForeignLanguageTermsByUserIdAndLanguageCode(userId, languageCode)
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Select(term => term.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var generationRequest = new TextGenerationRequest
+        {
+            TargetLanguage = request.TargetLanguage,
+            AllowedGrammar = request.AllowedGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),
+            MinWordCount = request.MinWordCount,
+            MaxWordCount = request.MaxWordCount,
+            Style = request.Style,
+            Difficulty = request.Difficulty
+        };
+
+        var generatedText = await GenerateTextInternalAsync(
+            generationRequest,
+            vocabulary,
+            cancellationToken);
+
+        return new GenerateTextResponseDto(
+            generatedText.Language,
+            generatedText.Text,
+            generatedText.ValidationResult.IsValid,
+            generatedText.ValidationResult.ErrorMessage);
+    }
+
+    private async Task<GeneratedText> GenerateTextInternalAsync(
+        TextGenerationRequest request,
+        IReadOnlyCollection<string> allowedVocabulary,
+        CancellationToken cancellationToken)
+    {
+        var prompt = BuildPrompt(request, allowedVocabulary);
         var response = await _llmClient.GenerateAsync(prompt, cancellationToken);
 
         var generatedText = new GeneratedText
         {
             Language = request.TargetLanguage,
             Text = response,
-            UsedVocabulary = new HashSet<string>(),
-            UsedGrammar = new HashSet<GrammarConceptId>()
+            UsedVocabulary = new HashSet<string>(allowedVocabulary, StringComparer.OrdinalIgnoreCase),
+            UsedGrammar = new HashSet<GrammarConceptId>(request.AllowedGrammar)
         };
 
         var validation = _validator.Validate(request, generatedText);
-        if (!validation.IsValid)
-        {
-            return generatedText with { ValidationResult = validation };
-        }
-
         return generatedText with { ValidationResult = validation };
     }
 
-    private static string BuildPrompt(TextGenerationRequest request)
+    private static string BuildPrompt(
+        TextGenerationRequest request,
+        IReadOnlyCollection<string> allowedVocabulary)
     {
-        var vocabulary = request.AllowedVocabularyLemmas.Count == 0
+        var vocabulary = allowedVocabulary.Count == 0
             ? "none"
-            : string.Join(", ", request.AllowedVocabularyLemmas);
+            : string.Join(", ", allowedVocabulary);
 
         var grammar = request.AllowedGrammar.Count == 0
             ? "none"
@@ -68,9 +115,42 @@ public sealed class LearningSessionAiService
         builder.AppendLine($"Word count: {request.MinWordCount}-{request.MaxWordCount}.");
         builder.AppendLine($"Allowed vocabulary lemmas: {vocabulary}.");
         builder.AppendLine($"Allowed grammar concepts: {grammar}.");
+        if (request.AllowedGrammar.Contains(GrammarConceptId.ArabicFullyVocalized))
+        {
+            builder.AppendLine("Requirement: The Arabic text must be fully vocalized (include diacritics).");
+        }
         builder.AppendLine($"Style: {request.Style}.");
         builder.AppendLine($"Difficulty: {request.Difficulty}.");
 
         return builder.ToString();
+    }
+
+    private static bool TryGetLanguageCode(
+        Language language,
+        out string languageCode,
+        out string errorMessage)
+    {
+        if (!Enum.IsDefined(typeof(Language), language) || language == Language.Unknown)
+        {
+            languageCode = "";
+            errorMessage = "Target language is not supported.";
+            return false;
+        }
+
+        switch (language)
+        {
+            case Language.Arabic:
+                languageCode = "ar";
+                errorMessage = "";
+                return true;
+            case Language.English:
+                languageCode = "en";
+                errorMessage = "";
+                return true;
+            default:
+                languageCode = "";
+                errorMessage = "Target language is not supported.";
+                return false;
+        }
     }
 }

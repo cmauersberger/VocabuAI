@@ -11,11 +11,6 @@ public sealed record TextGenerationRequest
     public Language TargetLanguage { get; init; } = Language.Unknown;
 
     /// <summary>
-    /// Allowed vocabulary lemmas for generation.
-    /// </summary>
-    public IReadOnlySet<string> AllowedVocabularyLemmas { get; init; } = new HashSet<string>();
-
-    /// <summary>
     /// Allowed grammar concepts for generation.
     /// </summary>
     public IReadOnlySet<GrammarConceptId> AllowedGrammar { get; init; } = new HashSet<GrammarConceptId>();

@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using VocabuAI.Application.Learning;
 using VocabuAI.Domain.Learning;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
 
 namespace VocabuAI.Infrastructure.Repositories;
 
-public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRepository
+public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRepository, IFlashCardVocabularyRepository
 {
     public FlashCardRepository(AppDbContext dbContext) : base(dbContext)
     {
@@ -16,6 +17,15 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
             .AsNoTracking()
             .Where(card => card.UserId == userId)
             .OrderByDescending(card => card.DateTimeCreated)
+            .ToArray();
+
+    public IReadOnlyCollection<string> GetForeignLanguageTermsByUserIdAndLanguageCode(
+        int userId,
+        string languageCode)
+        => DbContext.FlashCards
+            .AsNoTracking()
+            .Where(card => card.UserId == userId && card.ForeignLanguageCode == languageCode)
+            .Select(card => card.ForeignLanguage)
             .ToArray();
 
     public IReadOnlyCollection<FlashCardDb> GetAllWithLearningStateByUserId(int userId)

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using VocabuAI.Application.Learning;
+using VocabuAI.Application.Learning.Generation;
 using VocabuAI.Api.Dtos;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Domain.Learning;
@@ -52,6 +53,21 @@ public static class LearningSessionEndpoints
             })
             .WithTags("LearningSessions")
             .WithName("CreateLearningSession");
+
+        group.MapPost("/generate-text", async (
+                GenerateTextRequestDto request,
+                ClaimsPrincipal user,
+                LearningSessionAiService aiService,
+                CancellationToken cancellationToken) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var response = await aiService.GenerateTextAsync(userId, request, cancellationToken);
+                return Results.Ok(response);
+            })
+            .WithTags("LearningSessions")
+            .WithName("GenerateLearningText");
 
         group.MapPost("/flashcard-answered", (
                 FlashCardAnsweredRequest request,

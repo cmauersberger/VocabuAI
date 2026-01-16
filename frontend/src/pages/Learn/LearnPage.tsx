@@ -12,6 +12,13 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import { DifficultyLevel } from "../../domain/DifficultyLevel";
+import { GrammarConceptId } from "../../domain/GrammarConceptId";
+import { Language as GenerationLanguage } from "../../domain/Language";
+import { TextStyle } from "../../domain/TextStyle";
+import type { GenerateTextRequestDto } from "../../domain/dtos/GenerateTextRequestDto";
+import type { GenerateTextResponseDto } from "../../domain/dtos/GenerateTextResponseDto";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import type { FreeTextTaskPayload } from "../../domain/FreeTextTaskPayload";
 import type { LearningMappingItem } from "../../domain/LearningMappingItem";
 import type { LearningSession } from "../../domain/LearningSession";
@@ -65,6 +72,18 @@ export default function LearnPage({
     () => new Set()
   );
   const [status, setStatus] = React.useState<string | null>(null);
+  const [userSettings, setUserSettings] = React.useState<UserSettingsDto | null>(
+    null
+  );
+  const [isLoadingSettings, setIsLoadingSettings] = React.useState(false);
+  const [generatedText, setGeneratedText] = React.useState<string | null>(null);
+  const [generationError, setGenerationError] = React.useState<string | null>(
+    null
+  );
+  const [generationStatus, setGenerationStatus] = React.useState<string | null>(
+    null
+  );
+  const [isGeneratingText, setIsGeneratingText] = React.useState(false);
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
   const [totalAnswers, setTotalAnswers] = React.useState(0);
@@ -135,6 +154,33 @@ export default function LearnPage({
     [apiBaseUrl, authToken, handleAuthFailure]
   );
 
+  const loadUserSettings = React.useCallback(async () => {
+    setIsLoadingSettings(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/settings`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as UserSettingsDto;
+      setUserSettings(payload);
+    } catch {
+      handleAuthFailure();
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
+
+  React.useEffect(() => {
+    loadUserSettings();
+  }, [loadUserSettings]);
+
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
 
@@ -192,6 +238,72 @@ export default function LearnPage({
     } catch (error) {
       if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
+    }
+  };
+
+  const generateText = async () => {
+    setGenerationStatus("Generating text...");
+    setGenerationError(null);
+    setGeneratedText(null);
+    setIsGeneratingText(true);
+
+    if (!userSettings) {
+      setGenerationStatus(null);
+      setGenerationError("User settings are missing.");
+      setIsGeneratingText(false);
+      return;
+    }
+
+    const targetLanguage = getGenerationLanguageFromCode(
+      userSettings?.defaultForeignFlashCardLanguage
+    );
+    if (!targetLanguage) {
+      setGenerationStatus(null);
+      setGenerationError("Unsupported target language.");
+      setIsGeneratingText(false);
+      return;
+    }
+
+    const request: GenerateTextRequestDto = {
+      targetLanguage,
+      minWordCount: 50,
+      maxWordCount: 80,
+      allowedGrammar: [GrammarConceptId.ArabicFullyVocalized],
+      style: TextStyle.Unspecified,
+      difficulty: DifficultyLevel.Unspecified
+    };
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/learning-session/generate-text`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(request)
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        setGenerationError("Unable to generate text.");
+        return;
+      }
+
+      const payload = (await response.json()) as GenerateTextResponseDto;
+      if (!payload.isValid) {
+        setGenerationError(payload.errorMessage ?? "Text generation failed.");
+        return;
+      }
+
+      setGeneratedText(payload.text);
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setGenerationError("Unable to reach the API.");
+    } finally {
+      setGenerationStatus(null);
+      setIsGeneratingText(false);
     }
   };
 
@@ -355,6 +467,23 @@ export default function LearnPage({
           onClick={startSession}
           style={styles.centeredButton}
         />
+        <Button
+          label="Generate Text"
+          onClick={generateText}
+          style={styles.centeredButton}
+          disabled={isGeneratingText || isLoadingSettings}
+        />
+        {generationStatus ? (
+          <Text style={styles.status}>{generationStatus}</Text>
+        ) : null}
+        {generationError ? (
+          <Text style={styles.generationError}>{generationError}</Text>
+        ) : null}
+        {generatedText ? (
+          <View style={styles.generatedTextCard}>
+            <Text style={styles.generatedText}>{generatedText}</Text>
+          </View>
+        ) : null}
         {summary ? (
           <View style={styles.resultCard}>
             <Text style={styles.resultItem}>
@@ -1002,6 +1131,20 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+function getGenerationLanguageFromCode(
+  code: string | null | undefined
+): GenerationLanguage | null {
+  if (!code) return null;
+  const normalized = code.trim().toLowerCase();
+  if (normalized === "ar" || normalized.startsWith("ar-")) {
+    return GenerationLanguage.Arabic;
+  }
+  if (normalized === "en" || normalized.startsWith("en-")) {
+    return GenerationLanguage.English;
+  }
+  return null;
+}
+
 function getLanguageLabel(language: LearningLanguage): string {
   switch (language) {
     case LearningLanguage.Foreign:
@@ -1287,9 +1430,22 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8
   },
+  generatedTextCard: {
+    backgroundColor: "#0F172A",
+    borderRadius: 12,
+    padding: 16
+  },
+  generatedText: {
+    color: "#E2E8F0",
+    fontSize: 24,
+    lineHeight: 32
+  },
   resultItem: {
     color: "#E2E8F0",
     fontSize: 15
+  },
+  generationError: {
+    color: "#F97316"
   },
   centeredButton: {
     alignSelf: "center"

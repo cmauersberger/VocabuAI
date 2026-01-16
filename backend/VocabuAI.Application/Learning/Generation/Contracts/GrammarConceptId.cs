@@ -8,5 +8,10 @@ public enum GrammarConceptId
     /// <summary>
     /// Unspecified grammar concept.
     /// </summary>
-    Unspecified = 0
+    Unspecified = 0,
+
+    /// <summary>
+    /// Use fully vocalized Arabic text.
+    /// </summary>
+    ArabicFullyVocalized = 1
 }

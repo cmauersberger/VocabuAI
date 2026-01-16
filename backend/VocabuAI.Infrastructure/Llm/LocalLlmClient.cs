@@ -18,6 +18,7 @@ public sealed class LocalLlmClient : ILocalLlmClient
 
     public async Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken)
     {
+        var startedAt = DateTimeOffset.UtcNow;
         var request = new GenerateRequest(_options.Value.Model, prompt, false);
         using var response = await _httpClient.PostAsJsonAsync("api/generate", request, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -27,6 +28,10 @@ public sealed class LocalLlmClient : ILocalLlmClient
         {
             throw new InvalidOperationException("LLM response payload is missing the response field.");
         }
+
+        var elapsed = DateTimeOffset.UtcNow - startedAt;
+        Console.WriteLine(
+            $"LLM GenerateAsync completed in {elapsed.TotalMilliseconds:0} ms. Response length: {payload.Response.Length}. Prompt: {prompt}.");
 
         return payload.Response;
     }
