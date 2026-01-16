@@ -110,10 +110,20 @@ public sealed class LearningSessionAiService
             : string.Join(", ", request.AllowedGrammar);
 
         var builder = new StringBuilder();
+        if (request.TargetLanguage == Language.Arabic)
+        {
+            builder.AppendLine("You are an expert Arabic linguist.");
+            builder.AppendLine("Always respond in Modern Standard Arabic (الفصحى).");
+            builder.AppendLine("Use correct grammar, proper agreement, and natural phrasing.");
+            builder.AppendLine("Avoid dialect unless explicitly requested.");
+        }
         builder.AppendLine("Generate a text with the following constraints:");
         builder.AppendLine($"Target language: {request.TargetLanguage}.");
         builder.AppendLine($"Word count: {request.MinWordCount}-{request.MaxWordCount}.");
         builder.AppendLine($"Allowed vocabulary lemmas: {vocabulary}.");
+        builder.AppendLine("You must prioritize using the allowed vocabulary lemmas, but you may use additional simple words as needed.");
+        builder.AppendLine("Adapt the prioritized words to fit correct grammar and meaning (e.g., conjugate verbs and keep a single tense).");
+        builder.AppendLine("Most important: the text must be grammatically correct and make sense.");
         builder.AppendLine($"Allowed grammar concepts: {grammar}.");
         if (request.AllowedGrammar.Contains(GrammarConceptId.ArabicFullyVocalized))
         {
