@@ -136,7 +136,7 @@ public sealed class LearningSessionAiService
             builder.AppendLine("Requirement: The Arabic text must be fully vocalized (include diacritics).");
         }
         builder.AppendLine($"Style: {request.Style}.");
-        builder.AppendLine($"Difficulty: {request.Difficulty}.");
+        builder.AppendLine($"Difficulty: {request.LanguageLevel}.");
 
         return builder.ToString();
     }
@@ -169,7 +169,7 @@ public sealed class LearningSessionAiService
             MinWordCount = request.MinWordCount,
             MaxWordCount = request.MaxWordCount,
             Style = request.Style,
-            Difficulty = request.Difficulty
+            LanguageLevel = request.LanguageLevel
         };
 
         errorMessage = "";

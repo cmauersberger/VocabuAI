@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
-import { DifficultyLevel } from "../../domain/DifficultyLevel";
+import { LanguageLevel } from "../../domain/LanguageLevel";
 import { GrammarConceptId } from "../../domain/GrammarConceptId";
 import { Language as GenerationLanguage } from "../../domain/Language";
 import { TextStyle } from "../../domain/TextStyle";
@@ -271,7 +271,7 @@ export default function LearnPage({
       maxWordCount: 80,
       allowedGrammar: [GrammarConceptId.ArabicFullyVocalized],
       style: TextStyle.Unspecified,
-      difficulty: DifficultyLevel.Unspecified
+      languageLevel: LanguageLevel.A1
     };
 
     if (Platform.OS === "web") {

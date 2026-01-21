@@ -1,5 +1,5 @@
 // Keep in sync with backend/VocabuAI.Application/Learning/Generation/GenerateTextRequestDto.cs
-import { DifficultyLevel } from "../DifficultyLevel";
+import { LanguageLevel } from "../LanguageLevel";
 import { GrammarConceptId } from "../GrammarConceptId";
 import { Language } from "../Language";
 import { TextStyle } from "../TextStyle";
@@ -10,5 +10,5 @@ export type GenerateTextRequestDto = {
   maxWordCount: number;
   allowedGrammar: GrammarConceptId[];
   style: TextStyle;
-  difficulty: DifficultyLevel;
+  languageLevel: LanguageLevel;
 };

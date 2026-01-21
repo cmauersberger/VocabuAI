@@ -31,7 +31,7 @@ public sealed record TextGenerationRequest
     public TextStyle Style { get; init; } = TextStyle.Unspecified;
 
     /// <summary>
-    /// Desired difficulty level.
+    /// Desired language level.
     /// </summary>
-    public DifficultyLevel Difficulty { get; init; } = DifficultyLevel.Unspecified;
+    public LanguageLevel LanguageLevel { get; init; } = LanguageLevel.A1;
 }

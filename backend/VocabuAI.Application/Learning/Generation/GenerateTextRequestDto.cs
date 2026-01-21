@@ -10,5 +10,5 @@ public sealed record GenerateTextRequestDto(
     int MaxWordCount,
     IReadOnlyCollection<GrammarConceptId> AllowedGrammar,
     TextStyle Style,
-    DifficultyLevel Difficulty
+    LanguageLevel LanguageLevel
 );
