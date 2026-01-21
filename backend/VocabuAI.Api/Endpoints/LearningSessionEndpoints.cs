@@ -69,6 +69,44 @@ public static class LearningSessionEndpoints
             .WithTags("LearningSessions")
             .WithName("GenerateLearningText");
 
+        group.MapPost("/generate-text-stream", async (
+                GenerateTextRequestDto request,
+                ClaimsPrincipal user,
+                LearningSessionAiService aiService,
+                HttpResponse response,
+                CancellationToken cancellationToken) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                {
+                    response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+
+                response.Headers.CacheControl = "no-cache";
+                response.Headers.Connection = "keep-alive";
+                response.ContentType = "text/event-stream";
+
+                var (errorMessage, stream) = aiService.GenerateTextStream(
+                    userId,
+                    request,
+                    cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(errorMessage) || stream is null)
+                {
+                    await WriteSseEventAsync(response, "error", errorMessage ?? "Unable to start stream.", cancellationToken);
+                    return;
+                }
+
+                await foreach (var chunk in stream.WithCancellation(cancellationToken))
+                {
+                    await WriteSseEventAsync(response, "message", chunk, cancellationToken);
+                }
+
+                await WriteSseEventAsync(response, "done", "", cancellationToken);
+            })
+            .WithTags("LearningSessions")
+            .WithName("GenerateLearningTextStream");
+
         group.MapPost("/flashcard-answered", (
                 FlashCardAnsweredRequest request,
                 ClaimsPrincipal user,
@@ -137,4 +175,23 @@ public static class LearningSessionEndpoints
             state.WrongCountTotal,
             state.CorrectStreak,
             state.LastAnsweredAt);
+
+    private static async Task WriteSseEventAsync(
+        HttpResponse response,
+        string eventName,
+        string data,
+        CancellationToken cancellationToken)
+    {
+        await response.WriteAsync($"event: {eventName}\n", cancellationToken);
+
+        var normalized = data.Replace("\r\n", "\n");
+        var lines = normalized.Split('\n');
+        foreach (var line in lines)
+        {
+            await response.WriteAsync($"data: {line}\n", cancellationToken);
+        }
+
+        await response.WriteAsync("\n", cancellationToken);
+        await response.Body.FlushAsync(cancellationToken);
+    }
 }

@@ -17,7 +17,6 @@ import { GrammarConceptId } from "../../domain/GrammarConceptId";
 import { Language as GenerationLanguage } from "../../domain/Language";
 import { TextStyle } from "../../domain/TextStyle";
 import type { GenerateTextRequestDto } from "../../domain/dtos/GenerateTextRequestDto";
-import type { GenerateTextResponseDto } from "../../domain/dtos/GenerateTextResponseDto";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import type { FreeTextTaskPayload } from "../../domain/FreeTextTaskPayload";
 import type { LearningMappingItem } from "../../domain/LearningMappingItem";
@@ -84,6 +83,7 @@ export default function LearnPage({
     null
   );
   const [isGeneratingText, setIsGeneratingText] = React.useState(false);
+  const stopStreamingRef = React.useRef(false);
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
   const [totalAnswers, setTotalAnswers] = React.useState(0);
@@ -246,6 +246,7 @@ export default function LearnPage({
     setGenerationError(null);
     setGeneratedText(null);
     setIsGeneratingText(true);
+    stopStreamingRef.current = false;
 
     if (!userSettings) {
       setGenerationStatus(null);
@@ -273,35 +274,122 @@ export default function LearnPage({
       difficulty: DifficultyLevel.Unspecified
     };
 
+    if (Platform.OS === "web") {
+      await streamTextOnWeb(request);
+      return;
+    }
+
+    await streamTextOnNative(request);
+  };
+
+  const handleSseEvent = React.useCallback(
+    (event: SseEvent) => {
+      if (event.event === "error") {
+        stopStreamingRef.current = true;
+        setGenerationError(event.data || "Text generation failed.");
+        return;
+      }
+
+      if (event.event === "done") {
+        stopStreamingRef.current = true;
+        return;
+      }
+
+      if (event.data) {
+        setGeneratedText((prev) => `${prev ?? ""}${event.data}`);
+      }
+    },
+    []
+  );
+
+  const streamTextOnWeb = async (request: GenerateTextRequestDto) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/learning-session/generate-text`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(request)
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/learning-session/generate-text-stream`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(request)
+        }
+      );
 
       if (isAuthFailureResponse(response)) {
         if (handleAuthFailure()) return;
       }
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         setGenerationError("Unable to generate text.");
         return;
       }
 
-      const payload = (await response.json()) as GenerateTextResponseDto;
-      if (!payload.isValid) {
-        setGenerationError(payload.errorMessage ?? "Text generation failed.");
-        return;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        buffer = handleSseBuffer(buffer, handleSseEvent);
+        if (stopStreamingRef.current) break;
       }
 
-      setGeneratedText(payload.text);
+      if (buffer.trim()) {
+        handleSseEvent(parseSseEvent(buffer));
+      }
     } catch (error) {
       if (handleAuthFailure()) return;
       setGenerationError("Unable to reach the API.");
     } finally {
+      setGenerationStatus(null);
+      setIsGeneratingText(false);
+    }
+  };
+
+  const streamTextOnNative = async (request: GenerateTextRequestDto) => {
+    try {
+      const { default: EventSource } = await import("react-native-sse");
+      const source = new EventSource(
+        `${apiBaseUrl}/learning-session/generate-text-stream`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(request)
+        }
+      );
+
+      const closeStream = () => {
+        source.close();
+        setGenerationStatus(null);
+        setIsGeneratingText(false);
+      };
+
+      source.addEventListener("message", (event: { data?: string }) => {
+        if (typeof event.data === "string") {
+          setGeneratedText((prev) => `${prev ?? ""}${event.data}`);
+        }
+      });
+
+      source.addEventListener("error", (event: { data?: string }) => {
+        if (typeof event.data === "string" && event.data.trim()) {
+          setGenerationError(event.data);
+        } else {
+          setGenerationError("Unable to generate text.");
+        }
+        closeStream();
+      });
+
+      source.addEventListener("done", () => {
+        closeStream();
+      });
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setGenerationError("Unable to reach the API.");
       setGenerationStatus(null);
       setIsGeneratingText(false);
     }
@@ -1129,6 +1217,43 @@ function shuffle<T>(items: T[]): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+type SseEvent = {
+  event: string;
+  data: string;
+};
+
+function parseSseEvent(raw: string): SseEvent {
+  const lines = raw.split("\n");
+  let eventName = "message";
+  const dataLines: string[] = [];
+
+  lines.forEach((line) => {
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim() || "message";
+      return;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  });
+
+  return { event: eventName, data: dataLines.join("\n") };
+}
+
+function handleSseBuffer(
+  buffer: string,
+  onEvent: (event: SseEvent) => void
+): string {
+  const parts = buffer.split("\n\n");
+  const remaining = parts.pop() ?? "";
+  parts.forEach((part) => {
+    if (part.trim()) {
+      onEvent(parseSseEvent(part));
+    }
+  });
+  return remaining;
 }
 
 function getGenerationLanguageFromCode(

@@ -39,7 +39,12 @@ public sealed class LearningSessionAiService
         GenerateTextRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (!TryGetLanguageCode(request.TargetLanguage, out var languageCode, out var errorMessage))
+        if (!TryBuildGenerationContext(
+                userId,
+                request,
+                out var generationRequest,
+                out var vocabulary,
+                out var errorMessage))
         {
             return new GenerateTextResponseDto(
                 request.TargetLanguage,
@@ -47,23 +52,6 @@ public sealed class LearningSessionAiService
                 false,
                 errorMessage);
         }
-
-        var vocabulary = _vocabularyRepository
-            .GetForeignLanguageTermsByUserIdAndLanguageCode(userId, languageCode)
-            .Where(term => !string.IsNullOrWhiteSpace(term))
-            .Select(term => term.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        var generationRequest = new TextGenerationRequest
-        {
-            TargetLanguage = request.TargetLanguage,
-            AllowedGrammar = request.AllowedGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),
-            MinWordCount = request.MinWordCount,
-            MaxWordCount = request.MaxWordCount,
-            Style = request.Style,
-            Difficulty = request.Difficulty
-        };
 
         var generatedText = await GenerateTextInternalAsync(
             generationRequest,
@@ -75,6 +63,24 @@ public sealed class LearningSessionAiService
             generatedText.Text,
             generatedText.ValidationResult.IsValid,
             generatedText.ValidationResult.ErrorMessage);
+    }
+
+    public (string? ErrorMessage, IAsyncEnumerable<string>? Stream) GenerateTextStream(
+        int userId,
+        GenerateTextRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryBuildGenerationContext(
+                userId,
+                request,
+                out var generationRequest,
+                out var vocabulary,
+                out var errorMessage))
+        {
+            return (errorMessage, null);
+        }
+
+        return (null, GenerateTextStreamInternal(generationRequest, vocabulary, cancellationToken));
     }
 
     private async Task<GeneratedText> GenerateTextInternalAsync(
@@ -133,6 +139,53 @@ public sealed class LearningSessionAiService
         builder.AppendLine($"Difficulty: {request.Difficulty}.");
 
         return builder.ToString();
+    }
+
+    private bool TryBuildGenerationContext(
+        int userId,
+        GenerateTextRequestDto request,
+        out TextGenerationRequest generationRequest,
+        out IReadOnlyCollection<string> vocabulary,
+        out string errorMessage)
+    {
+        if (!TryGetLanguageCode(request.TargetLanguage, out var languageCode, out errorMessage))
+        {
+            generationRequest = new TextGenerationRequest();
+            vocabulary = Array.Empty<string>();
+            return false;
+        }
+
+        vocabulary = _vocabularyRepository
+            .GetForeignLanguageTermsByUserIdAndLanguageCode(userId, languageCode)
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Select(term => term.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        generationRequest = new TextGenerationRequest
+        {
+            TargetLanguage = request.TargetLanguage,
+            AllowedGrammar = request.AllowedGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),
+            MinWordCount = request.MinWordCount,
+            MaxWordCount = request.MaxWordCount,
+            Style = request.Style,
+            Difficulty = request.Difficulty
+        };
+
+        errorMessage = "";
+        return true;
+    }
+
+    private async IAsyncEnumerable<string> GenerateTextStreamInternal(
+        TextGenerationRequest request,
+        IReadOnlyCollection<string> allowedVocabulary,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var prompt = BuildPrompt(request, allowedVocabulary);
+        await foreach (var chunk in _llmClient.GenerateStreamAsync(prompt, cancellationToken))
+        {
+            yield return chunk;
+        }
     }
 
     private static bool TryGetLanguageCode(
