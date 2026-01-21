@@ -1,4 +1,5 @@
-using System.Text;
+using VocabuAI.Application.Learning.Ai;
+using VocabuAI.Application.Learning.Ai.PromptBuilders;
 using VocabuAI.Application.Learning.Generation;
 using VocabuAI.Application.Learning.Generation.Contracts;
 using VocabuAI.Application.Learning.Generation.Validation;
@@ -12,14 +13,17 @@ public sealed class LearningSessionAiService
 {
     private readonly ILocalLlmClient _llmClient;
     private readonly IFlashCardVocabularyRepository _vocabularyRepository;
+    private readonly ILearningTextPromptBuilder _promptBuilder;
     private readonly TextGenerationValidator _validator = new();
 
     public LearningSessionAiService(
         ILocalLlmClient llmClient,
-        IFlashCardVocabularyRepository vocabularyRepository)
+        IFlashCardVocabularyRepository vocabularyRepository,
+        ILearningTextPromptBuilder promptBuilder)
     {
         _llmClient = llmClient;
         _vocabularyRepository = vocabularyRepository;
+        _promptBuilder = promptBuilder;
     }
 
     /// <summary>
@@ -27,7 +31,7 @@ public sealed class LearningSessionAiService
     /// </summary>
     public async Task GenerateInterestingArabicWordAsync(CancellationToken cancellationToken)
     {
-        const string prompt = "Show me an interesting word in arab, fully vocalized, and its translation and explanation in english.";
+        var prompt = LearningSessionAiPrompts.GetInterestingArabicWordPrompt();
         await _llmClient.GenerateAsync(prompt, cancellationToken);
     }
 
@@ -88,7 +92,7 @@ public sealed class LearningSessionAiService
         IReadOnlyCollection<string> allowedVocabulary,
         CancellationToken cancellationToken)
     {
-        var prompt = BuildPrompt(request, allowedVocabulary);
+        var prompt = _promptBuilder.BuildPrompt(request, allowedVocabulary);
         var response = await _llmClient.GenerateAsync(prompt, cancellationToken);
 
         var generatedText = new GeneratedText
@@ -101,44 +105,6 @@ public sealed class LearningSessionAiService
 
         var validation = _validator.Validate(request, generatedText);
         return generatedText with { ValidationResult = validation };
-    }
-
-    private static string BuildPrompt(
-        TextGenerationRequest request,
-        IReadOnlyCollection<string> allowedVocabulary)
-    {
-        var vocabulary = allowedVocabulary.Count == 0
-            ? "none"
-            : string.Join(", ", allowedVocabulary);
-
-        var grammar = request.AllowedGrammar.Count == 0
-            ? "none"
-            : string.Join(", ", request.AllowedGrammar);
-
-        var builder = new StringBuilder();
-        if (request.TargetLanguage == Language.Arabic)
-        {
-            builder.AppendLine("You are an expert Arabic linguist.");
-            builder.AppendLine("Always respond in Modern Standard Arabic (الفصحى).");
-            builder.AppendLine("Use correct grammar, proper agreement, and natural phrasing.");
-            builder.AppendLine("Avoid dialect unless explicitly requested.");
-        }
-        builder.AppendLine("Generate a text with the following constraints:");
-        builder.AppendLine($"Target language: {request.TargetLanguage}.");
-        builder.AppendLine($"Word count: {request.MinWordCount}-{request.MaxWordCount}.");
-        builder.AppendLine($"Allowed vocabulary lemmas: {vocabulary}.");
-        builder.AppendLine("You must prioritize using the allowed vocabulary lemmas, but you may use additional simple words as needed.");
-        builder.AppendLine("Adapt the prioritized words to fit correct grammar and meaning (e.g., conjugate verbs and keep a single tense).");
-        builder.AppendLine("Most important: the text must be grammatically correct and make sense.");
-        builder.AppendLine($"Allowed grammar concepts: {grammar}.");
-        if (request.AllowedGrammar.Contains(GrammarConceptId.ArabicFullyVocalized))
-        {
-            builder.AppendLine("Requirement: The Arabic text must be fully vocalized (include diacritics).");
-        }
-        builder.AppendLine($"Style: {request.Style}.");
-        builder.AppendLine($"Difficulty: {request.LanguageLevel}.");
-
-        return builder.ToString();
     }
 
     private bool TryBuildGenerationContext(
@@ -181,7 +147,7 @@ public sealed class LearningSessionAiService
         IReadOnlyCollection<string> allowedVocabulary,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var prompt = BuildPrompt(request, allowedVocabulary);
+        var prompt = _promptBuilder.BuildPrompt(request, allowedVocabulary);
         await foreach (var chunk in _llmClient.GenerateStreamAsync(prompt, cancellationToken))
         {
             yield return chunk;

@@ -9,6 +9,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Npgsql;
 using VocabuAI.Application.Learning;
+using VocabuAI.Application.Learning.Ai.PromptBuilders;
+using VocabuAI.Application.Learning.Ai.PromptBuilders.LanguageRules;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Infrastructure.Database;
@@ -72,6 +74,9 @@ builder.Services.AddScoped<IFlashCardLearningStateRepository, FlashCardLearningS
 builder.Services.AddScoped<FlashCardLearningProgressService>();
 builder.Services.AddScoped<FlashCardImportExportService>();
 builder.Services.AddScoped<ILearningSessionService, LearningSessionService>();
+builder.Services.AddScoped<ILearningTextPromptBuilder, LearningTextPromptBuilder>();
+builder.Services.AddScoped<ILanguageRules, GenericLanguageRules>();
+builder.Services.AddScoped<ILanguageRules, ArabicLanguageRules>();
 builder.Services.AddScoped<LearningSessionAiService>();
 builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
 
