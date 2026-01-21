@@ -16,6 +16,11 @@ public sealed record TextGenerationRequest
     public IReadOnlySet<GrammarConceptId> AllowedGrammar { get; init; } = new HashSet<GrammarConceptId>();
 
     /// <summary>
+    /// Forbidden grammar concepts for generation.
+    /// </summary>
+    public IReadOnlySet<GrammarConceptId> ForbiddenGrammar { get; init; } = new HashSet<GrammarConceptId>();
+
+    /// <summary>
     /// Minimum word count requirement.
     /// </summary>
     public int MinWordCount { get; init; }

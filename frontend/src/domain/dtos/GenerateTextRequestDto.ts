@@ -9,6 +9,7 @@ export type GenerateTextRequestDto = {
   minWordCount: number;
   maxWordCount: number;
   allowedGrammar: GrammarConceptId[];
+  forbiddenGrammar: GrammarConceptId[];
   style: TextStyle;
   languageLevel: LanguageLevel;
 };

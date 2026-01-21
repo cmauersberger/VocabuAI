@@ -269,7 +269,18 @@ export default function LearnPage({
       targetLanguage,
       minWordCount: 50,
       maxWordCount: 80,
-      allowedGrammar: [GrammarConceptId.ArabicFullyVocalized],
+      allowedGrammar: [
+        GrammarConceptId.ArabicFullyVocalized,
+        GrammarConceptId.PresentTense,
+        GrammarConceptId.Negation,
+        GrammarConceptId.Pronouns
+      ],
+      forbiddenGrammar: [
+        GrammarConceptId.PastTense,
+        GrammarConceptId.FutureTense,
+        GrammarConceptId.Conditional,
+        GrammarConceptId.RelativeClauses
+      ],
       style: TextStyle.Unspecified,
       languageLevel: LanguageLevel.A1
     };

@@ -132,6 +132,7 @@ public sealed class LearningSessionAiService
         {
             TargetLanguage = request.TargetLanguage,
             AllowedGrammar = request.AllowedGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),
+            ForbiddenGrammar = request.ForbiddenGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),
             MinWordCount = request.MinWordCount,
             MaxWordCount = request.MaxWordCount,
             Style = request.Style,

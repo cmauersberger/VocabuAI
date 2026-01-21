@@ -9,6 +9,7 @@ public sealed record GenerateTextRequestDto(
     int MinWordCount,
     int MaxWordCount,
     IReadOnlyCollection<GrammarConceptId> AllowedGrammar,
+    IReadOnlyCollection<GrammarConceptId> ForbiddenGrammar,
     TextStyle Style,
     LanguageLevel LanguageLevel
 );

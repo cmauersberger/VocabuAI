@@ -19,7 +19,7 @@ public sealed class LearningTextPromptBuilder : ILearningTextPromptBuilder
         var languageName = GetLanguageDisplayName(request.TargetLanguage);
         var vocabularyList = FormatVocabulary(vocabularyLemmas);
         var dominantGrammar = FormatGrammarConcepts(request.AllowedGrammar);
-        var forbiddenGrammar = FormatForbiddenGrammar(request.AllowedGrammar);
+        var forbiddenGrammar = FormatGrammarConcepts(request.ForbiddenGrammar);
 
         builder.AppendLine("Language requirements:");
         builder.AppendLine($"- Write as an expert writer in {languageName}.");
@@ -76,33 +76,13 @@ public sealed class LearningTextPromptBuilder : ILearningTextPromptBuilder
     {
         var descriptions = grammarConcepts
             .Where(concept => concept != GrammarConceptId.Unspecified)
-            .Select(GetGrammarConceptDescription)
+            .Select(concept => concept.GetDescription())
             .ToArray();
 
         return descriptions.Length == 0
             ? "none specified"
             : string.Join(", ", descriptions);
     }
-
-    private static string FormatForbiddenGrammar(IReadOnlySet<GrammarConceptId> allowedConcepts)
-    {
-        var forbidden = Enum.GetValues<GrammarConceptId>()
-            .Where(concept => concept != GrammarConceptId.Unspecified)
-            .Where(concept => !allowedConcepts.Contains(concept))
-            .Select(GetGrammarConceptDescription)
-            .ToArray();
-
-        return forbidden.Length == 0
-            ? "none specified"
-            : string.Join(", ", forbidden);
-    }
-
-    private static string GetGrammarConceptDescription(GrammarConceptId concept) =>
-        concept switch
-        {
-            GrammarConceptId.ArabicFullyVocalized => "Full vocalization with diacritics on all or nearly all words",
-            _ => "Other specified grammar concept"
-        };
 
     private static string GetStyleDescription(TextStyle style) =>
         style switch
