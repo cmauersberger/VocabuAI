@@ -11,4 +11,11 @@ public interface IFlashCardVocabularyRepository
     IReadOnlyCollection<string> GetForeignLanguageTermsByUserIdAndLanguageCode(
         int userId,
         string languageCode);
+
+    /// <summary>
+    /// Returns flashcards with learning state for a user in the given language code.
+    /// </summary>
+    IReadOnlyCollection<LearningFlashCard> GetLearningFlashCardsByUserIdAndLanguageCode(
+        int userId,
+        string languageCode);
 }

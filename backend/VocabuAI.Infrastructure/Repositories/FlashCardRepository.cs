@@ -28,6 +28,23 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
             .Select(card => card.ForeignLanguage)
             .ToArray();
 
+    public IReadOnlyCollection<LearningFlashCard> GetLearningFlashCardsByUserIdAndLanguageCode(
+        int userId,
+        string languageCode)
+        => DbContext.FlashCards
+            .AsNoTracking()
+            .Include(card => card.LearningState)
+            .Where(card => card.UserId == userId && card.ForeignLanguageCode == languageCode)
+            .Select(card => new LearningFlashCard(
+                card.Id,
+                card.ForeignLanguage,
+                card.LocalLanguage,
+                card.Synonyms,
+                card.LearningState == null ? 1 : card.LearningState.Box,
+                card.LearningState == null ? 0 : card.LearningState.CorrectStreak,
+                card.LearningState == null ? null : card.LearningState.LastAnsweredAt))
+            .ToArray();
+
     public IReadOnlyCollection<FlashCardDb> GetAllWithLearningStateByUserId(int userId)
         => DbContext.FlashCards
             .AsNoTracking()

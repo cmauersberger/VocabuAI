@@ -3,6 +3,7 @@ using VocabuAI.Application.Learning.Ai.PromptBuilders;
 using VocabuAI.Application.Learning.Generation;
 using VocabuAI.Application.Learning.Generation.Contracts;
 using VocabuAI.Application.Learning.Generation.Validation;
+using VocabuAI.Application.Learning.Selection;
 
 namespace VocabuAI.Application.Learning;
 
@@ -11,6 +12,7 @@ namespace VocabuAI.Application.Learning;
 /// </summary>
 public sealed class LearningSessionAiService
 {
+    private const int MaxVocabularyItems = 30;
     private readonly ILocalLlmClient _llmClient;
     private readonly IFlashCardVocabularyRepository _vocabularyRepository;
     private readonly ILearningTextPromptBuilder _promptBuilder;
@@ -121,8 +123,16 @@ public sealed class LearningSessionAiService
             return false;
         }
 
-        vocabulary = _vocabularyRepository
-            .GetForeignLanguageTermsByUserIdAndLanguageCode(userId, languageCode)
+        var learningCards = _vocabularyRepository
+            .GetLearningFlashCardsByUserIdAndLanguageCode(userId, languageCode)
+            .ToArray();
+
+        var selectedCards = LearningFlashCardSelector.SelectFlashCardsForSession(
+            MaxVocabularyItems,
+            learningCards);
+
+        vocabulary = selectedCards
+            .Select(card => card.ForeignLanguage)
             .Where(term => !string.IsNullOrWhiteSpace(term))
             .Select(term => term.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
