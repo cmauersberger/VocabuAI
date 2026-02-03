@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -12,6 +13,7 @@ import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import Button from "../../components/Button";
 import type { FlashCardImportResultDto } from "../../domain/dtos/flashcards/FlashCardImportResultDto";
+import type { OpenAiSettingsRequestDto } from "../../domain/dtos/OpenAiSettingsRequestDto";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { LANGUAGE_OPTIONS } from "./languageOptions";
@@ -48,6 +50,10 @@ export default function SettingsPage({
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
+  const [openAiStatus, setOpenAiStatus] = React.useState<string | null>(null);
+  const [isSavingOpenAi, setIsSavingOpenAi] = React.useState(false);
+  const [openAiApiKey, setOpenAiApiKey] = React.useState("");
+  const [openAiMonthlyLimit, setOpenAiMonthlyLimit] = React.useState("");
   const [sampleStatus, setSampleStatus] = React.useState<string | null>(null);
   const [backupStatus, setBackupStatus] = React.useState<string | null>(null);
   const [isExportingBackup, setIsExportingBackup] = React.useState(false);
@@ -62,6 +68,14 @@ export default function SettingsPage({
   const formatDate = (value?: number) =>
     value ? new Date(value).toLocaleString() : "Unknown";
 
+  const getUserTimeZone = () => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+      return null;
+    }
+  };
+
   const timeRemaining = () => {
     if (!expiresAt) return null;
     const diffMs = expiresAt - Date.now();
@@ -69,6 +83,7 @@ export default function SettingsPage({
     if (minutes <= 0) return "Expired";
     return `${minutes} min remaining`;
   };
+  const openAiUsagePercent = settings?.usagePercent ?? null;
 
   const loadSettings = React.useCallback(async () => {
     setIsLoading(true);
@@ -100,6 +115,15 @@ export default function SettingsPage({
   React.useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  React.useEffect(() => {
+    if (!settings) return;
+    setOpenAiMonthlyLimit(
+      settings.openAiMonthlyTokenLimit > 0
+        ? String(settings.openAiMonthlyTokenLimit)
+        : ""
+    );
+  }, [settings]);
 
   const getLanguageLabel = (code: string | null | undefined) => {
     if (!code) return "Select language";
@@ -145,6 +169,96 @@ export default function SettingsPage({
       setStatus("Unable to reach the API.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const saveOpenAiSettings = async () => {
+    if (!settings) return;
+    setIsSavingOpenAi(true);
+    setOpenAiStatus("Saving OpenAI settings...");
+
+    const trimmedKey = openAiApiKey.trim();
+    const limitValue = Number(openAiMonthlyLimit);
+
+    if (!trimmedKey) {
+      setOpenAiStatus("OpenAI API key is required.");
+      setIsSavingOpenAi(false);
+      return;
+    }
+
+    if (!Number.isFinite(limitValue) || limitValue <= 0) {
+      setOpenAiStatus("Monthly token limit must be greater than 0.");
+      setIsSavingOpenAi(false);
+      return;
+    }
+
+    const payload: OpenAiSettingsRequestDto = {
+      openAiApiKey: trimmedKey,
+      openAiMonthlyTokenLimit: limitValue,
+      userTimeZone: getUserTimeZone()
+    };
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/settings/openai`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { message?: string }
+          | null;
+        setOpenAiStatus(errorPayload?.message || "Unable to save OpenAI settings.");
+        return;
+      }
+
+      const updated = (await response.json()) as UserSettingsDto;
+      setSettings(updated);
+      setOpenAiApiKey("");
+      setOpenAiStatus("OpenAI settings saved.");
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setOpenAiStatus("Unable to reach the API.");
+    } finally {
+      setIsSavingOpenAi(false);
+    }
+  };
+
+  const removeOpenAiKey = async () => {
+    if (!settings) return;
+    setIsSavingOpenAi(true);
+    setOpenAiStatus("Removing OpenAI key...");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/settings/openai/remove`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        setOpenAiStatus("Unable to remove OpenAI key.");
+        return;
+      }
+
+      const updated = (await response.json()) as UserSettingsDto;
+      setSettings(updated);
+      setOpenAiApiKey("");
+      setOpenAiStatus("OpenAI key removed.");
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setOpenAiStatus("Unable to reach the API.");
+    } finally {
+      setIsSavingOpenAi(false);
     }
   };
 
@@ -467,6 +581,91 @@ export default function SettingsPage({
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>OpenAI (Paid)</Text>
+        <Text style={styles.explanation}>
+          Configure a paid OpenAI key and monthly token budget. The key is stored
+          encrypted on the server.
+        </Text>
+        {settings?.hasOpenAiKey ? (
+          <Text style={styles.muted}>
+            Key on file: ****{settings.openAiKeyLast4 ?? "----"}
+          </Text>
+        ) : (
+          <Text style={styles.muted}>No OpenAI key configured.</Text>
+        )}
+        <View style={styles.settingRow}>
+          <Text style={styles.label}>OpenAI API Key</Text>
+          <TextInput
+            value={openAiApiKey}
+            onChangeText={setOpenAiApiKey}
+            placeholder="sk-..."
+            placeholderTextColor="rgba(148, 163, 184, 0.6)"
+            secureTextEntry
+            autoCapitalize="none"
+            style={styles.textInput}
+          />
+        </View>
+        <View style={styles.settingRow}>
+          <Text style={styles.label}>Monthly Token Limit</Text>
+          <TextInput
+            value={openAiMonthlyLimit}
+            onChangeText={setOpenAiMonthlyLimit}
+            placeholder="20000"
+            placeholderTextColor="rgba(148, 163, 184, 0.6)"
+            keyboardType="numeric"
+            style={styles.textInput}
+          />
+        </View>
+        {settings && settings.openAiMonthlyTokenLimit > 0 ? (
+          <View style={styles.openAiUsageBlock}>
+            <View style={styles.openAiUsageTrack}>
+              <View
+                style={[
+                  styles.openAiUsageFill,
+                  {
+                    flex:
+                      openAiUsagePercent !== null
+                        ? Math.min(1, Math.max(0, openAiUsagePercent))
+                        : 0
+                  }
+                ]}
+              />
+              <View
+                style={[
+                  styles.openAiUsageRemaining,
+                  {
+                    flex:
+                      openAiUsagePercent !== null
+                        ? Math.max(0, 1 - openAiUsagePercent)
+                        : 1
+                  }
+                ]}
+              />
+            </View>
+            <Text style={styles.muted}>
+              {settings.openAiTokensUsedThisMonth} /{" "}
+              {settings.openAiMonthlyTokenLimit} tokens used ({settings.monthKey})
+            </Text>
+          </View>
+        ) : null}
+        {openAiStatus ? <Text style={styles.status}>{openAiStatus}</Text> : null}
+        <View style={styles.openAiActions}>
+          <Button
+            label={isSavingOpenAi ? "Saving..." : "Save OpenAI Settings"}
+            onClick={saveOpenAiSettings}
+            disabled={isSavingOpenAi || !settings}
+            style={styles.emptyButton}
+          />
+          <Button
+            label="Remove OpenAI Key"
+            onClick={removeOpenAiKey}
+            disabled={isSavingOpenAi || !settings?.hasOpenAiKey}
+            style={styles.emptyButton}
+          />
+        </View>
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>Flashcard backup</Text>
         <Text style={styles.explanation}>
           Export or import your flashcards and learning state.
@@ -615,6 +814,34 @@ const styles = StyleSheet.create({
   selectOptionCode: {
     fontSize: 12,
     color: "#94A3B8"
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#E5E7EB",
+    backgroundColor: "rgba(15, 23, 42, 0.6)"
+  },
+  openAiUsageBlock: {
+    gap: 6
+  },
+  openAiUsageTrack: {
+    flexDirection: "row",
+    height: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "rgba(148, 163, 184, 0.25)"
+  },
+  openAiUsageFill: {
+    backgroundColor: "#38BDF8"
+  },
+  openAiUsageRemaining: {
+    backgroundColor: "rgba(148, 163, 184, 0.2)"
+  },
+  openAiActions: {
+    gap: 10
   },
   status: {
     color: "#93C5FD",

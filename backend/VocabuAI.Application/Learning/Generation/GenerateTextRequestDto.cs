@@ -11,5 +11,6 @@ public sealed record GenerateTextRequestDto(
     IReadOnlyCollection<GrammarConceptId> AllowedGrammar,
     IReadOnlyCollection<GrammarConceptId> ForbiddenGrammar,
     TextStyle Style,
-    LanguageLevel LanguageLevel
+    LanguageLevel LanguageLevel,
+    AiProvider? Provider
 );

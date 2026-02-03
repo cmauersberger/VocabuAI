@@ -32,4 +32,19 @@ public sealed record GeneratedText
     /// Validation result for the generated text.
     /// </summary>
     public TextGenerationValidationResult ValidationResult { get; init; } = TextGenerationValidationResult.Success();
+
+    /// <summary>
+    /// Provider that produced the text.
+    /// </summary>
+    public AiProvider Provider { get; init; } = AiProvider.Ollama;
+
+    /// <summary>
+    /// Token usage reported by the provider.
+    /// </summary>
+    public AiTokenUsage? TokenUsage { get; init; }
+
+    /// <summary>
+    /// OpenAI usage percent after this call.
+    /// </summary>
+    public double? UsagePercent { get; init; }
 }

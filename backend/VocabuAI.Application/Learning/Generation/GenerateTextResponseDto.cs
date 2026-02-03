@@ -8,5 +8,8 @@ public sealed record GenerateTextResponseDto(
     Language Language,
     string Text,
     bool IsValid,
-    string? ErrorMessage
+    string? ErrorMessage,
+    AiProvider Provider,
+    AiTokenUsage? TokenUsage,
+    double? UsagePercent
 );

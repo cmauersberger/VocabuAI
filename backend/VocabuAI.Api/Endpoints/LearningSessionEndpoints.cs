@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using VocabuAI.Application.Learning;
 using VocabuAI.Application.Learning.Generation;
 using VocabuAI.Api.Dtos;
@@ -63,8 +64,27 @@ public static class LearningSessionEndpoints
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
 
-                var response = await aiService.GenerateTextAsync(userId, request, cancellationToken);
-                return Results.Ok(response);
+                try
+                {
+                    var response = await aiService.GenerateTextAsync(userId, request, cancellationToken);
+                    return Results.Ok(response);
+                }
+                catch (OpenAiBudgetExceededException ex)
+                {
+                    return Results.BadRequest(new { code = OpenAiBudgetExceededException.ErrorCode, message = ex.Message });
+                }
+                catch (CryptographicException)
+                {
+                    return Results.BadRequest(new { message = "OpenAI key could not be decrypted. Please re-save it in Settings." });
+                }
+                catch (FormatException)
+                {
+                    return Results.BadRequest(new { message = "OpenAI key could not be decrypted. Please re-save it in Settings." });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
             })
             .WithTags("LearningSessions")
             .WithName("GenerateLearningText");
@@ -86,10 +106,21 @@ public static class LearningSessionEndpoints
                 response.Headers.Connection = "keep-alive";
                 response.ContentType = "text/event-stream";
 
-                var (errorMessage, stream) = aiService.GenerateTextStream(
-                    userId,
-                    request,
-                    cancellationToken);
+                string? errorMessage;
+                IAsyncEnumerable<string>? stream;
+
+                try
+                {
+                    (errorMessage, stream) = await aiService.GenerateTextStreamAsync(
+                        userId,
+                        request,
+                        cancellationToken);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    await WriteSseEventAsync(response, "error", ex.Message, cancellationToken);
+                    return;
+                }
 
                 if (!string.IsNullOrWhiteSpace(errorMessage) || stream is null)
                 {

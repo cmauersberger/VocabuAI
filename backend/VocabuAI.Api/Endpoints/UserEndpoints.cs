@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
+using VocabuAI.Application.Learning.Generation;
+using VocabuAI.Application.Learning.Generation.Contracts;
+using VocabuAI.Application.Security;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Api.Dtos;
 
@@ -129,7 +132,7 @@ public static class UserEndpoints
             .WithTags("Users")
             .WithName("UpdateUser");
 
-        app.MapGet("/users/settings", (ClaimsPrincipal user, IUserRepository users) =>
+        app.MapGet("/users/settings", (ClaimsPrincipal user, IUserRepository users, ISecretProtector protector) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -138,9 +141,27 @@ public static class UserEndpoints
                 if (currentUser is null)
                     return Results.NotFound();
 
+                var monthKey = OpenAiUsageCalculator.GetMonthKey(DateTimeOffset.UtcNow, currentUser.UserTimeZone);
+                if (!string.Equals(currentUser.OpenAiTokensUsedMonthKey, monthKey, StringComparison.Ordinal))
+                {
+                    currentUser.OpenAiTokensUsedMonthKey = monthKey;
+                    currentUser.OpenAiTokensUsedThisMonth = 0;
+                    users.Update(currentUser);
+                    users.SaveChanges();
+                }
+
                 var response = new UserSettingsDto(
                     currentUser.DefaultForeignFlashCardLanguage,
-                    currentUser.DefaultLocalFlashCardLanguage);
+                    currentUser.DefaultLocalFlashCardLanguage,
+                    HasOpenAiKey(currentUser),
+                    GetOpenAiKeyLast4(currentUser, protector),
+                    currentUser.OpenAiMonthlyTokenLimit,
+                    currentUser.OpenAiTokensUsedThisMonth,
+                    currentUser.OpenAiTokensUsedMonthKey,
+                    OpenAiUsageCalculator.GetUsagePercent(
+                        currentUser.OpenAiTokensUsedThisMonth,
+                        currentUser.OpenAiMonthlyTokenLimit),
+                    ResolveStoredProvider(currentUser.LastSelectedAiProvider));
 
                 return Results.Ok(response);
             })
@@ -148,7 +169,7 @@ public static class UserEndpoints
             .WithTags("Users")
             .WithName("GetUserSettings");
 
-        app.MapPut("/users/settings", (UserSettingsDto request, ClaimsPrincipal user, IUserRepository users) =>
+        app.MapPut("/users/settings", (UserSettingsDto request, ClaimsPrincipal user, IUserRepository users, ISecretProtector protector) =>
             {
                 if (!TryGetUserId(user, out var userId))
                     return Results.Unauthorized();
@@ -170,13 +191,121 @@ public static class UserEndpoints
 
                 var response = new UserSettingsDto(
                     currentUser.DefaultForeignFlashCardLanguage,
-                    currentUser.DefaultLocalFlashCardLanguage);
+                    currentUser.DefaultLocalFlashCardLanguage,
+                    HasOpenAiKey(currentUser),
+                    GetOpenAiKeyLast4(currentUser, protector),
+                    currentUser.OpenAiMonthlyTokenLimit,
+                    currentUser.OpenAiTokensUsedThisMonth,
+                    currentUser.OpenAiTokensUsedMonthKey,
+                    OpenAiUsageCalculator.GetUsagePercent(
+                        currentUser.OpenAiTokensUsedThisMonth,
+                        currentUser.OpenAiMonthlyTokenLimit),
+                    ResolveStoredProvider(currentUser.LastSelectedAiProvider));
 
                 return Results.Ok(response);
             })
             .RequireAuthorization()
             .WithTags("Users")
             .WithName("UpdateUserSettings");
+
+        app.MapPut("/users/settings/openai", (OpenAiSettingsRequestDto request, ClaimsPrincipal user, IUserRepository users, ISecretProtector protector) =>
+            {
+                try
+                {
+                    if (!TryGetUserId(user, out var userId))
+                        return Results.Unauthorized();
+
+                    var currentUser = users.GetById(userId);
+                    if (currentUser is null)
+                        return Results.NotFound();
+
+                    if (!protector.IsEnabled)
+                    {
+                        throw new InvalidOperationException("OpenAI is disabled because APP_SECRET_ENCRYPTION_KEY is missing.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(request.OpenAiApiKey))
+                    {
+                        return Results.BadRequest(new { message = "OpenAiApiKey is required." });
+                    }
+
+                    if (request.OpenAiMonthlyTokenLimit <= 0)
+                    {
+                        return Results.BadRequest(new { message = "OpenAiMonthlyTokenLimit must be greater than 0." });
+                    }
+
+                    currentUser.OpenAiApiKeyEncrypted = protector.Encrypt(request.OpenAiApiKey.Trim());
+                    currentUser.OpenAiMonthlyTokenLimit = request.OpenAiMonthlyTokenLimit;
+                    if (!string.IsNullOrWhiteSpace(request.UserTimeZone))
+                    {
+                        currentUser.UserTimeZone = request.UserTimeZone.Trim();
+                    }
+
+                    var monthKey = OpenAiUsageCalculator.GetMonthKey(DateTimeOffset.UtcNow, currentUser.UserTimeZone);
+                    if (!string.Equals(currentUser.OpenAiTokensUsedMonthKey, monthKey, StringComparison.Ordinal))
+                    {
+                        currentUser.OpenAiTokensUsedMonthKey = monthKey;
+                        currentUser.OpenAiTokensUsedThisMonth = 0;
+                    }
+
+                    users.Update(currentUser);
+                    users.SaveChanges();
+
+                    var response = new UserSettingsDto(
+                        currentUser.DefaultForeignFlashCardLanguage,
+                        currentUser.DefaultLocalFlashCardLanguage,
+                        HasOpenAiKey(currentUser),
+                        GetOpenAiKeyLast4(currentUser, protector),
+                        currentUser.OpenAiMonthlyTokenLimit,
+                        currentUser.OpenAiTokensUsedThisMonth,
+                        currentUser.OpenAiTokensUsedMonthKey,
+                        OpenAiUsageCalculator.GetUsagePercent(
+                            currentUser.OpenAiTokensUsedThisMonth,
+                            currentUser.OpenAiMonthlyTokenLimit),
+                        ResolveStoredProvider(currentUser.LastSelectedAiProvider));
+
+                    return Results.Ok(response);
+                }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("APP_SECRET_ENCRYPTION_KEY", StringComparison.Ordinal))
+                {
+                    return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
+            })
+            .RequireAuthorization()
+            .WithTags("Users")
+            .WithName("UpdateOpenAiSettings");
+
+        app.MapPost("/users/settings/openai/remove", (ClaimsPrincipal user, IUserRepository users, ISecretProtector protector) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var currentUser = users.GetById(userId);
+                if (currentUser is null)
+                    return Results.NotFound();
+
+                currentUser.OpenAiApiKeyEncrypted = null;
+                users.Update(currentUser);
+                users.SaveChanges();
+
+                var response = new UserSettingsDto(
+                    currentUser.DefaultForeignFlashCardLanguage,
+                    currentUser.DefaultLocalFlashCardLanguage,
+                    HasOpenAiKey(currentUser),
+                    GetOpenAiKeyLast4(currentUser, protector),
+                    currentUser.OpenAiMonthlyTokenLimit,
+                    currentUser.OpenAiTokensUsedThisMonth,
+                    currentUser.OpenAiTokensUsedMonthKey,
+                    OpenAiUsageCalculator.GetUsagePercent(
+                        currentUser.OpenAiTokensUsedThisMonth,
+                        currentUser.OpenAiMonthlyTokenLimit),
+                    ResolveStoredProvider(currentUser.LastSelectedAiProvider));
+
+                return Results.Ok(response);
+            })
+            .RequireAuthorization()
+            .WithTags("Users")
+            .WithName("RemoveOpenAiKey");
     }
 
     private static string NormalizeEmail(string email)
@@ -256,6 +385,40 @@ public static class UserEndpoints
 
         return true;
     }
+
+    private static bool HasOpenAiKey(UserDb user)
+        => !string.IsNullOrWhiteSpace(user.OpenAiApiKeyEncrypted);
+
+    private static string? GetOpenAiKeyLast4(UserDb user, ISecretProtector protector)
+    {
+        if (string.IsNullOrWhiteSpace(user.OpenAiApiKeyEncrypted))
+        {
+            return null;
+        }
+
+        if (!protector.IsEnabled)
+        {
+            return null;
+        }
+
+        try
+        {
+            var decrypted = protector.Decrypt(user.OpenAiApiKeyEncrypted);
+            if (string.IsNullOrEmpty(decrypted))
+            {
+                return null;
+            }
+
+            return decrypted.Length <= 4 ? decrypted : decrypted[^4..];
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static AiProvider ResolveStoredProvider(string? stored)
+        => AiProviderExtensions.TryParse(stored, out var provider) ? provider : AiProvider.Ollama;
 }
 
 public sealed record CreateUserRequest(string Email, string UserName, string Password, string InviteToken);

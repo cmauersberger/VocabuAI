@@ -6,6 +6,11 @@ namespace VocabuAI.Application.Learning.Generation.Contracts;
 public sealed record TextGenerationRequest
 {
     /// <summary>
+    /// User id used for AI provider routing.
+    /// </summary>
+    public int UserId { get; init; }
+
+    /// <summary>
     /// Target language for the generated text.
     /// </summary>
     public Language TargetLanguage { get; init; } = Language.Unknown;

@@ -17,7 +17,9 @@ import { GrammarConceptId } from "../../domain/GrammarConceptId";
 import { Language as GenerationLanguage } from "../../domain/Language";
 import { TextStyle } from "../../domain/TextStyle";
 import type { GenerateTextRequestDto } from "../../domain/dtos/GenerateTextRequestDto";
+import type { GenerateTextResponseDto } from "../../domain/dtos/GenerateTextResponseDto";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
+import type { AiProvider } from "../../domain/AiProvider";
 import type { FreeTextTaskPayload } from "../../domain/FreeTextTaskPayload";
 import type { LearningMappingItem } from "../../domain/LearningMappingItem";
 import type { LearningSession } from "../../domain/LearningSession";
@@ -83,6 +85,12 @@ export default function LearnPage({
     null
   );
   const [isGeneratingText, setIsGeneratingText] = React.useState(false);
+  const [selectedProvider, setSelectedProvider] =
+    React.useState<AiProvider>("ollama");
+  const [openAiUsage, setOpenAiUsage] = React.useState<{
+    tokenUsage: GenerateTextResponseDto["tokenUsage"] | null;
+    usagePercent: number | null;
+  } | null>(null);
   const stopStreamingRef = React.useRef(false);
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
@@ -181,12 +189,21 @@ export default function LearnPage({
     loadUserSettings();
   }, [loadUserSettings]);
 
+  React.useEffect(() => {
+    if (!userSettings?.lastSelectedAiProvider) return;
+    setSelectedProvider(userSettings.lastSelectedAiProvider);
+  }, [userSettings?.lastSelectedAiProvider]);
+
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
 
   const totalSteps = tasks.length;
   const answeredSteps = Math.min(totalAnswers, totalSteps);
   const progress = totalSteps === 0 ? 0 : answeredSteps / totalSteps;
+  const openAiNeedsConfig =
+    selectedProvider === "openai" &&
+    userSettings &&
+    (!userSettings.hasOpenAiKey || userSettings.openAiMonthlyTokenLimit <= 0);
 
   const resetSessionState = React.useCallback(() => {
     setSession(null);
@@ -247,6 +264,7 @@ export default function LearnPage({
     setGeneratedText(null);
     setIsGeneratingText(true);
     stopStreamingRef.current = false;
+    setOpenAiUsage(null);
 
     if (!userSettings) {
       setGenerationStatus(null);
@@ -261,6 +279,18 @@ export default function LearnPage({
     if (!targetLanguage) {
       setGenerationStatus(null);
       setGenerationError("Unsupported target language.");
+      setIsGeneratingText(false);
+      return;
+    }
+
+    if (
+      selectedProvider === "openai" &&
+      (!userSettings.hasOpenAiKey || userSettings.openAiMonthlyTokenLimit <= 0)
+    ) {
+      setGenerationStatus(null);
+      setGenerationError(
+        "OpenAI is not configured. Set a key and monthly limit in Settings."
+      );
       setIsGeneratingText(false);
       return;
     }
@@ -282,8 +312,14 @@ export default function LearnPage({
         GrammarConceptId.RelativeClauses
       ],
       style: TextStyle.Unspecified,
-      languageLevel: LanguageLevel.A1
+      languageLevel: LanguageLevel.A1,
+      provider: selectedProvider
     };
+
+    if (selectedProvider === "openai") {
+      await generateTextNonStreaming(request);
+      return;
+    }
 
     if (Platform.OS === "web") {
       await streamTextOnWeb(request);
@@ -401,6 +437,55 @@ export default function LearnPage({
     } catch (error) {
       if (handleAuthFailure()) return;
       setGenerationError("Unable to reach the API.");
+      setGenerationStatus(null);
+      setIsGeneratingText(false);
+    }
+  };
+
+  const generateTextNonStreaming = async (request: GenerateTextRequestDto) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/learning-session/generate-text`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(request)
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { code?: string; message?: string }
+          | null;
+        if (errorPayload?.code === "OPENAI_TOKEN_BUDGET_EXCEEDED") {
+          setGenerationError("OpenAI token budget exceeded for this month.");
+        } else {
+          setGenerationError(errorPayload?.message || "Unable to generate text.");
+        }
+        return;
+      }
+
+      const payload = (await response.json()) as GenerateTextResponseDto;
+      if (!payload.isValid) {
+        setGenerationError(payload.errorMessage || "Text generation failed.");
+      } else {
+        setGeneratedText(payload.text);
+      }
+
+      if (payload.provider === "openai") {
+        setOpenAiUsage({
+          tokenUsage: payload.tokenUsage,
+          usagePercent: payload.usagePercent
+        });
+      }
+    } catch {
+      if (handleAuthFailure()) return;
+      setGenerationError("Unable to reach the API.");
+    } finally {
       setGenerationStatus(null);
       setIsGeneratingText(false);
     }
@@ -566,11 +651,36 @@ export default function LearnPage({
           onClick={startSession}
           style={styles.centeredButton}
         />
+        <View style={styles.providerPicker}>
+          <Pressable
+            onPress={() => setSelectedProvider("ollama")}
+            style={[
+              styles.providerOption,
+              selectedProvider === "ollama" ? styles.providerOptionActive : null
+            ]}
+          >
+            <Text style={styles.providerLabel}>Local (Ollama)</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setSelectedProvider("openai")}
+            style={[
+              styles.providerOption,
+              selectedProvider === "openai" ? styles.providerOptionActive : null
+            ]}
+          >
+            <Text style={styles.providerLabel}>OpenAI (Paid)</Text>
+          </Pressable>
+        </View>
+        {openAiNeedsConfig ? (
+          <Text style={styles.providerWarning}>
+            OpenAI is selected but not configured. Update it in Settings.
+          </Text>
+        ) : null}
         <Button
           label="Generate Text"
           onClick={generateText}
           style={styles.centeredButton}
-          disabled={isGeneratingText || isLoadingSettings}
+          disabled={isGeneratingText || isLoadingSettings || openAiNeedsConfig}
         />
         {generationStatus ? (
           <Text style={styles.status}>{generationStatus}</Text>
@@ -582,6 +692,16 @@ export default function LearnPage({
           <View style={styles.generatedTextCard}>
             <Text style={styles.generatedText}>{generatedText}</Text>
           </View>
+        ) : null}
+        {openAiUsage ? (
+          <Text style={styles.openAiUsageText}>
+            OpenAI usage this call: {openAiUsage.tokenUsage?.totalTokens ?? 0}{" "}
+            tokens. Monthly usage:{" "}
+            {openAiUsage.usagePercent !== null
+              ? `${Math.round(openAiUsage.usagePercent * 100)}%`
+              : "n/a"}
+            .
+          </Text>
         ) : null}
         {summary ? (
           <View style={styles.resultCard}>
@@ -1585,6 +1705,37 @@ const styles = StyleSheet.create({
   },
   centeredButton: {
     alignSelf: "center"
+  },
+  providerPicker: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    flexWrap: "wrap"
+  },
+  providerOption: {
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "rgba(15, 23, 42, 0.6)"
+  },
+  providerOptionActive: {
+    borderColor: "#38BDF8",
+    backgroundColor: "rgba(56, 189, 248, 0.18)"
+  },
+  providerLabel: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  providerWarning: {
+    color: "#F59E0B",
+    textAlign: "center"
+  },
+  openAiUsageText: {
+    color: "#93C5FD",
+    textAlign: "center"
   },
   correctionActions: {
     flexDirection: "row",

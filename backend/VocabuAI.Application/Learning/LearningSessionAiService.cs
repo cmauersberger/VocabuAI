@@ -14,16 +14,19 @@ public sealed class LearningSessionAiService
 {
     private const int MaxVocabularyItems = 30;
     private readonly ILocalLlmClient _llmClient;
+    private readonly IAiTextGenerationService _aiTextGenerationService;
     private readonly IFlashCardVocabularyRepository _vocabularyRepository;
     private readonly ILearningTextPromptBuilder _promptBuilder;
     private readonly TextGenerationValidator _validator = new();
 
     public LearningSessionAiService(
         ILocalLlmClient llmClient,
+        IAiTextGenerationService aiTextGenerationService,
         IFlashCardVocabularyRepository vocabularyRepository,
         ILearningTextPromptBuilder promptBuilder)
     {
         _llmClient = llmClient;
+        _aiTextGenerationService = aiTextGenerationService;
         _vocabularyRepository = vocabularyRepository;
         _promptBuilder = promptBuilder;
     }
@@ -56,26 +59,44 @@ public sealed class LearningSessionAiService
                 request.TargetLanguage,
                 "",
                 false,
-                errorMessage);
+                errorMessage,
+                request.Provider ?? AiProvider.Ollama,
+                null,
+                null);
         }
 
         var generatedText = await GenerateTextInternalAsync(
             generationRequest,
             vocabulary,
+            request.Provider,
             cancellationToken);
 
         return new GenerateTextResponseDto(
             generatedText.Language,
             generatedText.Text,
             generatedText.ValidationResult.IsValid,
-            generatedText.ValidationResult.ErrorMessage);
+            generatedText.ValidationResult.ErrorMessage,
+            generatedText.Provider,
+            generatedText.TokenUsage,
+            generatedText.UsagePercent);
     }
 
-    public (string? ErrorMessage, IAsyncEnumerable<string>? Stream) GenerateTextStream(
+    public async Task<(string? ErrorMessage, IAsyncEnumerable<string>? Stream)> GenerateTextStreamAsync(
         int userId,
         GenerateTextRequestDto request,
         CancellationToken cancellationToken)
     {
+        var resolvedProvider = request.Provider
+            ?? await _aiTextGenerationService.ResolveProviderForUserAsync(
+                userId,
+                request.Provider,
+                cancellationToken);
+
+        if (resolvedProvider == AiProvider.OpenAi)
+        {
+            return ("OpenAI does not support streaming in this app yet.", null);
+        }
+
         if (!TryBuildGenerationContext(
                 userId,
                 request,
@@ -92,21 +113,38 @@ public sealed class LearningSessionAiService
     private async Task<GeneratedText> GenerateTextInternalAsync(
         TextGenerationRequest request,
         IReadOnlyCollection<string> allowedVocabulary,
+        AiProvider? provider,
         CancellationToken cancellationToken)
     {
         var prompt = _promptBuilder.BuildPrompt(request, allowedVocabulary);
-        var response = await _llmClient.GenerateAsync(prompt, cancellationToken);
+        var response = await _aiTextGenerationService.GenerateForUserAsync(
+            request.UserId,
+            provider,
+            prompt,
+            cancellationToken);
 
         var generatedText = new GeneratedText
         {
             Language = request.TargetLanguage,
-            Text = response,
+            Text = response.Text,
             UsedVocabulary = new HashSet<string>(allowedVocabulary, StringComparer.OrdinalIgnoreCase),
             UsedGrammar = new HashSet<GrammarConceptId>(request.AllowedGrammar)
         };
 
         var validation = _validator.Validate(request, generatedText);
-        return generatedText with { ValidationResult = validation };
+        var usagePercent = response.Provider == AiProvider.OpenAi
+            ? OpenAiUsageCalculator.GetUsagePercent(
+                response.TokensUsedThisMonth ?? 0,
+                response.MonthlyTokenLimit ?? 0)
+            : null;
+
+        return generatedText with
+        {
+            ValidationResult = validation,
+            Provider = response.Provider,
+            TokenUsage = response.TokenUsage,
+            UsagePercent = usagePercent
+        };
     }
 
     private bool TryBuildGenerationContext(
@@ -140,6 +178,7 @@ public sealed class LearningSessionAiService
 
         generationRequest = new TextGenerationRequest
         {
+            UserId = userId,
             TargetLanguage = request.TargetLanguage,
             AllowedGrammar = request.AllowedGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),
             ForbiddenGrammar = request.ForbiddenGrammar?.ToHashSet() ?? new HashSet<GrammarConceptId>(),

@@ -3,6 +3,7 @@ import { LanguageLevel } from "../LanguageLevel";
 import { GrammarConceptId } from "../GrammarConceptId";
 import { Language } from "../Language";
 import { TextStyle } from "../TextStyle";
+import type { AiProvider } from "../AiProvider";
 
 export type GenerateTextRequestDto = {
   targetLanguage: Language;
@@ -12,4 +13,5 @@ export type GenerateTextRequestDto = {
   forbiddenGrammar: GrammarConceptId[];
   style: TextStyle;
   languageLevel: LanguageLevel;
+  provider?: AiProvider | null;
 };
