@@ -60,7 +60,6 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.LastSelectedAiProvider)
                 .IsRequired()
                 .HasDefaultValue("ollama");
-            entity.Property(e => e.UserTimeZone);
             entity.Property(e => e.DateTimeCreated).IsRequired();
             entity.Property(e => e.DateTimeUpdated).IsRequired();
             entity.HasMany(e => e.FlashCards)

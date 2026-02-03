@@ -4,6 +4,5 @@ namespace VocabuAI.Api.Dtos;
 
 public sealed record OpenAiSettingsRequestDto(
     string OpenAiApiKey,
-    int OpenAiMonthlyTokenLimit,
-    string? UserTimeZone
+    int OpenAiMonthlyTokenLimit
 );

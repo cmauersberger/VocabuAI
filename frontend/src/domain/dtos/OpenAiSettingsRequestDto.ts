@@ -2,5 +2,4 @@
 export type OpenAiSettingsRequestDto = {
   openAiApiKey: string;
   openAiMonthlyTokenLimit: number;
-  userTimeZone: string | null;
 };

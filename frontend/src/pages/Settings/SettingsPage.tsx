@@ -68,14 +68,6 @@ export default function SettingsPage({
   const formatDate = (value?: number) =>
     value ? new Date(value).toLocaleString() : "Unknown";
 
-  const getUserTimeZone = () => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
-    } catch {
-      return null;
-    }
-  };
-
   const timeRemaining = () => {
     if (!expiresAt) return null;
     const diffMs = expiresAt - Date.now();
@@ -194,8 +186,7 @@ export default function SettingsPage({
 
     const payload: OpenAiSettingsRequestDto = {
       openAiApiKey: trimmedKey,
-      openAiMonthlyTokenLimit: limitValue,
-      userTimeZone: getUserTimeZone()
+      openAiMonthlyTokenLimit: limitValue
     };
 
     try {

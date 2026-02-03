@@ -16,7 +16,5 @@ public sealed class UserDb : BaseEntityDb
     public int OpenAiTokensUsedThisMonth { get; set; }
     public string OpenAiTokensUsedMonthKey { get; set; } = "";
     public string LastSelectedAiProvider { get; set; } = "ollama";
-    public string? UserTimeZone { get; set; }
-
     public ICollection<FlashCardDb> FlashCards { get; set; } = new List<FlashCardDb>();
 }

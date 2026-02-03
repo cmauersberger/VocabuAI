@@ -37,7 +37,7 @@ public sealed class AiTextGenerationService : IAiTextGenerationService
         var resolvedProvider = ResolveProvider(provider, user.LastSelectedAiProvider);
         if (resolvedProvider == AiProvider.OpenAi)
         {
-            return await GenerateWithOpenAiAsync(userId, user.UserTimeZone, prompt, ct);
+            return await GenerateWithOpenAiAsync(userId, prompt, ct);
         }
 
         var result = await _ollamaClient.GenerateAsync(new AiTextRequest(userId, AiProvider.Ollama, prompt), ct);
@@ -66,12 +66,11 @@ public sealed class AiTextGenerationService : IAiTextGenerationService
 
     private async Task<AiTextResult> GenerateWithOpenAiAsync(
         int userId,
-        string? userTimeZone,
         string prompt,
         CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
-        var monthKey = OpenAiUsageCalculator.GetMonthKey(now, userTimeZone);
+        var monthKey = OpenAiUsageCalculator.GetMonthKeyUtc(now);
         var preflightUser = await _dbContext.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, ct);
         if (preflightUser is null)
         {

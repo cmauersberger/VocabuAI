@@ -141,7 +141,7 @@ public static class UserEndpoints
                 if (currentUser is null)
                     return Results.NotFound();
 
-                var monthKey = OpenAiUsageCalculator.GetMonthKey(DateTimeOffset.UtcNow, currentUser.UserTimeZone);
+                var monthKey = OpenAiUsageCalculator.GetMonthKeyUtc(DateTimeOffset.UtcNow);
                 if (!string.Equals(currentUser.OpenAiTokensUsedMonthKey, monthKey, StringComparison.Ordinal))
                 {
                     currentUser.OpenAiTokensUsedMonthKey = monthKey;
@@ -236,12 +236,7 @@ public static class UserEndpoints
 
                     currentUser.OpenAiApiKeyEncrypted = protector.Encrypt(request.OpenAiApiKey.Trim());
                     currentUser.OpenAiMonthlyTokenLimit = request.OpenAiMonthlyTokenLimit;
-                    if (!string.IsNullOrWhiteSpace(request.UserTimeZone))
-                    {
-                        currentUser.UserTimeZone = request.UserTimeZone.Trim();
-                    }
-
-                    var monthKey = OpenAiUsageCalculator.GetMonthKey(DateTimeOffset.UtcNow, currentUser.UserTimeZone);
+                    var monthKey = OpenAiUsageCalculator.GetMonthKeyUtc(DateTimeOffset.UtcNow);
                     if (!string.Equals(currentUser.OpenAiTokensUsedMonthKey, monthKey, StringComparison.Ordinal))
                     {
                         currentUser.OpenAiTokensUsedMonthKey = monthKey;
