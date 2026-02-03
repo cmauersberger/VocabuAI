@@ -12,7 +12,7 @@ namespace VocabuAI.Application.Learning;
 /// </summary>
 public sealed class LearningSessionAiService
 {
-    private const int MaxVocabularyItems = 30;
+    private const int MaxVocabularyItems = 50;
     private readonly ILocalLlmClient _llmClient;
     private readonly IAiTextGenerationService _aiTextGenerationService;
     private readonly IFlashCardVocabularyRepository _vocabularyRepository;
