@@ -4,14 +4,21 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Npgsql;
 using VocabuAI.Application.Learning;
+using VocabuAI.Application.Learning.Ai.PromptBuilders;
+using VocabuAI.Application.Learning.Ai.PromptBuilders.LanguageRules;
+using VocabuAI.Application.Learning.Generation;
+using VocabuAI.Application.Security;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
+using VocabuAI.Infrastructure;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
+using VocabuAI.Infrastructure.Llm;
 using VocabuAI.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +40,12 @@ if (!string.IsNullOrWhiteSpace(jwtSecret) && string.IsNullOrWhiteSpace(builder.C
     builder.Configuration["Jwt:SigningKey"] = jwtSecret;
 }
 
+var appSecret = Environment.GetEnvironmentVariable("APP_SECRET_ENCRYPTION_KEY");
+if (!string.IsNullOrWhiteSpace(appSecret) && string.IsNullOrWhiteSpace(builder.Configuration["APP_SECRET_ENCRYPTION_KEY"]))
+{
+    builder.Configuration["APP_SECRET_ENCRYPTION_KEY"] = appSecret;
+}
+
 var inviteTokenHash = Environment.GetEnvironmentVariable("INVITE_TOKEN_HASH");
 if (!string.IsNullOrWhiteSpace(inviteTokenHash))
 {
@@ -51,6 +64,9 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(o => !string.IsNullOrWhiteSpace(o.SigningKey) && o.SigningKey.Length >= 32, "Jwt:SigningKey must be at least 32 characters")
     .ValidateOnStart();
 
+builder.Services.AddOptions<LlmOptions>()
+    .Bind(builder.Configuration.GetSection(LlmOptions.SectionName));
+
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
@@ -62,11 +78,32 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IFlashCardRepository, FlashCardRepository>();
+builder.Services.AddScoped<IFlashCardVocabularyRepository, FlashCardRepository>();
 builder.Services.AddScoped<IFlashCardLearningStateRepository, FlashCardLearningStateRepository>();
 builder.Services.AddScoped<FlashCardLearningProgressService>();
 builder.Services.AddScoped<FlashCardImportExportService>();
 builder.Services.AddScoped<ILearningSessionService, LearningSessionService>();
+builder.Services.AddScoped<ILearningTextPromptBuilder, LearningTextPromptBuilder>();
+builder.Services.AddScoped<ILanguageRules, GenericLanguageRules>();
+builder.Services.AddScoped<ILanguageRules, ArabicLanguageRules>();
+builder.Services.AddScoped<LearningSessionAiService>();
+builder.Services.AddScoped<IAiTextGenerationService, AiTextGenerationService>();
+builder.Services.AddScoped<OllamaAiTextClient>();
 builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
+builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
+
+builder.Services.AddHttpClient<ILocalLlmClient, LocalLlmClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<LlmOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
+
+builder.Services.AddHttpClient<OpenAiTextClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 var signingKeyBytes = Encoding.UTF8.GetBytes(jwt.SigningKey);

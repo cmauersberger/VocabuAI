@@ -12,6 +12,14 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import { LanguageLevel } from "../../domain/LanguageLevel";
+import { GrammarConceptId } from "../../domain/GrammarConceptId";
+import { Language as GenerationLanguage } from "../../domain/Language";
+import { TextStyle } from "../../domain/TextStyle";
+import type { GenerateTextRequestDto } from "../../domain/dtos/GenerateTextRequestDto";
+import type { GenerateTextResponseDto } from "../../domain/dtos/GenerateTextResponseDto";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
+import type { AiProvider } from "../../domain/AiProvider";
 import type { FreeTextTaskPayload } from "../../domain/FreeTextTaskPayload";
 import type { LearningMappingItem } from "../../domain/LearningMappingItem";
 import type { LearningSession } from "../../domain/LearningSession";
@@ -65,6 +73,25 @@ export default function LearnPage({
     () => new Set()
   );
   const [status, setStatus] = React.useState<string | null>(null);
+  const [userSettings, setUserSettings] = React.useState<UserSettingsDto | null>(
+    null
+  );
+  const [isLoadingSettings, setIsLoadingSettings] = React.useState(false);
+  const [generatedText, setGeneratedText] = React.useState<string | null>(null);
+  const [generationError, setGenerationError] = React.useState<string | null>(
+    null
+  );
+  const [generationStatus, setGenerationStatus] = React.useState<string | null>(
+    null
+  );
+  const [isGeneratingText, setIsGeneratingText] = React.useState(false);
+  const [selectedProvider, setSelectedProvider] =
+    React.useState<AiProvider>("ollama");
+  const [openAiUsage, setOpenAiUsage] = React.useState<{
+    tokenUsage: GenerateTextResponseDto["tokenUsage"] | null;
+    usagePercent: number | null;
+  } | null>(null);
+  const stopStreamingRef = React.useRef(false);
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
   const [totalAnswers, setTotalAnswers] = React.useState(0);
@@ -135,12 +162,48 @@ export default function LearnPage({
     [apiBaseUrl, authToken, handleAuthFailure]
   );
 
+  const loadUserSettings = React.useCallback(async () => {
+    setIsLoadingSettings(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/settings`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as UserSettingsDto;
+      setUserSettings(payload);
+    } catch {
+      handleAuthFailure();
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
+
+  React.useEffect(() => {
+    loadUserSettings();
+  }, [loadUserSettings]);
+
+  React.useEffect(() => {
+    if (!userSettings?.lastSelectedAiProvider) return;
+    setSelectedProvider(userSettings.lastSelectedAiProvider);
+  }, [userSettings?.lastSelectedAiProvider]);
+
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
 
   const totalSteps = tasks.length;
   const answeredSteps = Math.min(totalAnswers, totalSteps);
   const progress = totalSteps === 0 ? 0 : answeredSteps / totalSteps;
+  const openAiNeedsConfig =
+    selectedProvider === "openai" &&
+    userSettings &&
+    (!userSettings.hasOpenAiKey || userSettings.openAiMonthlyTokenLimit <= 0);
 
   const resetSessionState = React.useCallback(() => {
     setSession(null);
@@ -192,6 +255,239 @@ export default function LearnPage({
     } catch (error) {
       if (handleAuthFailure()) return;
       setStatus("Unable to reach the API.");
+    }
+  };
+
+  const generateText = async () => {
+    setGenerationStatus("Generating text...");
+    setGenerationError(null);
+    setGeneratedText(null);
+    setIsGeneratingText(true);
+    stopStreamingRef.current = false;
+    setOpenAiUsage(null);
+
+    if (!userSettings) {
+      setGenerationStatus(null);
+      setGenerationError("User settings are missing.");
+      setIsGeneratingText(false);
+      return;
+    }
+
+    const targetLanguage = getGenerationLanguageFromCode(
+      userSettings?.defaultForeignFlashCardLanguage
+    );
+    if (!targetLanguage) {
+      setGenerationStatus(null);
+      setGenerationError("Unsupported target language.");
+      setIsGeneratingText(false);
+      return;
+    }
+
+    if (
+      selectedProvider === "openai" &&
+      (!userSettings.hasOpenAiKey || userSettings.openAiMonthlyTokenLimit <= 0)
+    ) {
+      setGenerationStatus(null);
+      setGenerationError(
+        "OpenAI is not configured. Set a key and monthly limit in Settings."
+      );
+      setIsGeneratingText(false);
+      return;
+    }
+
+    const request: GenerateTextRequestDto = {
+      targetLanguage,
+      minWordCount: 50,
+      maxWordCount: 80,
+      allowedGrammar: [
+        GrammarConceptId.ArabicFullyVocalized,
+        GrammarConceptId.PresentTense,
+        GrammarConceptId.Negation,
+        GrammarConceptId.Pronouns
+      ],
+      forbiddenGrammar: [
+        GrammarConceptId.PastTense,
+        GrammarConceptId.FutureTense,
+        GrammarConceptId.Conditional,
+        GrammarConceptId.RelativeClauses
+      ],
+      style: TextStyle.Unspecified,
+      languageLevel: LanguageLevel.A1,
+      provider: selectedProvider
+    };
+
+    if (selectedProvider === "openai") {
+      await generateTextNonStreaming(request);
+      return;
+    }
+
+    if (Platform.OS === "web") {
+      await streamTextOnWeb(request);
+      return;
+    }
+
+    await streamTextOnNative(request);
+  };
+
+  const handleSseEvent = React.useCallback(
+    (event: SseEvent) => {
+      if (event.event === "error") {
+        stopStreamingRef.current = true;
+        setGenerationError(event.data || "Text generation failed.");
+        return;
+      }
+
+      if (event.event === "done") {
+        stopStreamingRef.current = true;
+        return;
+      }
+
+      if (event.data) {
+        setGeneratedText((prev) => `${prev ?? ""}${event.data}`);
+      }
+    },
+    []
+  );
+
+  const streamTextOnWeb = async (request: GenerateTextRequestDto) => {
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/learning-session/generate-text-stream`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(request)
+        }
+      );
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok || !response.body) {
+        setGenerationError("Unable to generate text.");
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        buffer = handleSseBuffer(buffer, handleSseEvent);
+        if (stopStreamingRef.current) break;
+      }
+
+      if (buffer.trim()) {
+        handleSseEvent(parseSseEvent(buffer));
+      }
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setGenerationError("Unable to reach the API.");
+    } finally {
+      setGenerationStatus(null);
+      setIsGeneratingText(false);
+    }
+  };
+
+  const streamTextOnNative = async (request: GenerateTextRequestDto) => {
+    try {
+      const { default: EventSource } = await import("react-native-sse");
+      const source = new EventSource(
+        `${apiBaseUrl}/learning-session/generate-text-stream`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(request)
+        }
+      );
+
+      const closeStream = () => {
+        source.close();
+        setGenerationStatus(null);
+        setIsGeneratingText(false);
+      };
+
+      source.addEventListener("message", (event: { data?: string }) => {
+        if (typeof event.data === "string") {
+          setGeneratedText((prev) => `${prev ?? ""}${event.data}`);
+        }
+      });
+
+      source.addEventListener("error", (event: { data?: string }) => {
+        if (typeof event.data === "string" && event.data.trim()) {
+          setGenerationError(event.data);
+        } else {
+          setGenerationError("Unable to generate text.");
+        }
+        closeStream();
+      });
+
+      source.addEventListener("done", () => {
+        closeStream();
+      });
+    } catch (error) {
+      if (handleAuthFailure()) return;
+      setGenerationError("Unable to reach the API.");
+      setGenerationStatus(null);
+      setIsGeneratingText(false);
+    }
+  };
+
+  const generateTextNonStreaming = async (request: GenerateTextRequestDto) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/learning-session/generate-text`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(request)
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { code?: string; message?: string }
+          | null;
+        if (errorPayload?.code === "OPENAI_TOKEN_BUDGET_EXCEEDED") {
+          setGenerationError("OpenAI token budget exceeded for this month.");
+        } else {
+          setGenerationError(errorPayload?.message || "Unable to generate text.");
+        }
+        return;
+      }
+
+      const payload = (await response.json()) as GenerateTextResponseDto;
+      if (!payload.isValid) {
+        setGenerationError(payload.errorMessage || "Text generation failed.");
+      } else {
+        setGeneratedText(payload.text);
+      }
+
+      if (payload.provider === "openai") {
+        setOpenAiUsage({
+          tokenUsage: payload.tokenUsage,
+          usagePercent: payload.usagePercent
+        });
+      }
+    } catch {
+      if (handleAuthFailure()) return;
+      setGenerationError("Unable to reach the API.");
+    } finally {
+      setGenerationStatus(null);
+      setIsGeneratingText(false);
     }
   };
 
@@ -355,6 +651,58 @@ export default function LearnPage({
           onClick={startSession}
           style={styles.centeredButton}
         />
+        <View style={styles.providerPicker}>
+          <Pressable
+            onPress={() => setSelectedProvider("ollama")}
+            style={[
+              styles.providerOption,
+              selectedProvider === "ollama" ? styles.providerOptionActive : null
+            ]}
+          >
+            <Text style={styles.providerLabel}>Local (Ollama)</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setSelectedProvider("openai")}
+            style={[
+              styles.providerOption,
+              selectedProvider === "openai" ? styles.providerOptionActive : null
+            ]}
+          >
+            <Text style={styles.providerLabel}>OpenAI (Paid)</Text>
+          </Pressable>
+        </View>
+        {openAiNeedsConfig ? (
+          <Text style={styles.providerWarning}>
+            OpenAI is selected but not configured. Update it in Settings.
+          </Text>
+        ) : null}
+        <Button
+          label="Generate Text"
+          onClick={generateText}
+          style={styles.centeredButton}
+          disabled={isGeneratingText || isLoadingSettings || openAiNeedsConfig}
+        />
+        {generationStatus ? (
+          <Text style={styles.status}>{generationStatus}</Text>
+        ) : null}
+        {generationError ? (
+          <Text style={styles.generationError}>{generationError}</Text>
+        ) : null}
+        {generatedText ? (
+          <View style={styles.generatedTextCard}>
+            <Text style={styles.generatedText}>{generatedText}</Text>
+          </View>
+        ) : null}
+        {openAiUsage ? (
+          <Text style={styles.openAiUsageText}>
+            OpenAI usage this call: {openAiUsage.tokenUsage?.totalTokens ?? 0}{" "}
+            tokens. Monthly usage:{" "}
+            {openAiUsage.usagePercent !== null
+              ? `${Math.round(openAiUsage.usagePercent * 100)}%`
+              : "n/a"}
+            .
+          </Text>
+        ) : null}
         {summary ? (
           <View style={styles.resultCard}>
             <Text style={styles.resultItem}>
@@ -1002,6 +1350,57 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+type SseEvent = {
+  event: string;
+  data: string;
+};
+
+function parseSseEvent(raw: string): SseEvent {
+  const lines = raw.split("\n");
+  let eventName = "message";
+  const dataLines: string[] = [];
+
+  lines.forEach((line) => {
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim() || "message";
+      return;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  });
+
+  return { event: eventName, data: dataLines.join("\n") };
+}
+
+function handleSseBuffer(
+  buffer: string,
+  onEvent: (event: SseEvent) => void
+): string {
+  const parts = buffer.split("\n\n");
+  const remaining = parts.pop() ?? "";
+  parts.forEach((part) => {
+    if (part.trim()) {
+      onEvent(parseSseEvent(part));
+    }
+  });
+  return remaining;
+}
+
+function getGenerationLanguageFromCode(
+  code: string | null | undefined
+): GenerationLanguage | null {
+  if (!code) return null;
+  const normalized = code.trim().toLowerCase();
+  if (normalized === "ar" || normalized.startsWith("ar-")) {
+    return GenerationLanguage.Arabic;
+  }
+  if (normalized === "en" || normalized.startsWith("en-")) {
+    return GenerationLanguage.English;
+  }
+  return null;
+}
+
 function getLanguageLabel(language: LearningLanguage): string {
   switch (language) {
     case LearningLanguage.Foreign:
@@ -1287,12 +1686,56 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8
   },
+  generatedTextCard: {
+    backgroundColor: "#0F172A",
+    borderRadius: 12,
+    padding: 16
+  },
+  generatedText: {
+    color: "#E2E8F0",
+    fontSize: 24,
+    lineHeight: 32
+  },
   resultItem: {
     color: "#E2E8F0",
     fontSize: 15
   },
+  generationError: {
+    color: "#F97316"
+  },
   centeredButton: {
     alignSelf: "center"
+  },
+  providerPicker: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    flexWrap: "wrap"
+  },
+  providerOption: {
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "rgba(15, 23, 42, 0.6)"
+  },
+  providerOptionActive: {
+    borderColor: "#38BDF8",
+    backgroundColor: "rgba(56, 189, 248, 0.18)"
+  },
+  providerLabel: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  providerWarning: {
+    color: "#F59E0B",
+    textAlign: "center"
+  },
+  openAiUsageText: {
+    color: "#93C5FD",
+    textAlign: "center"
   },
   correctionActions: {
     flexDirection: "row",

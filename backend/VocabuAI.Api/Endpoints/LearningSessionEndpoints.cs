@@ -1,6 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using VocabuAI.Application.Learning;
+using VocabuAI.Application.Learning.Generation;
 using VocabuAI.Api.Dtos;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Domain.Learning;
@@ -52,6 +54,89 @@ public static class LearningSessionEndpoints
             })
             .WithTags("LearningSessions")
             .WithName("CreateLearningSession");
+
+        group.MapPost("/generate-text", async (
+                GenerateTextRequestDto request,
+                ClaimsPrincipal user,
+                LearningSessionAiService aiService,
+                CancellationToken cancellationToken) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                try
+                {
+                    var response = await aiService.GenerateTextAsync(userId, request, cancellationToken);
+                    return Results.Ok(response);
+                }
+                catch (OpenAiBudgetExceededException ex)
+                {
+                    return Results.BadRequest(new { code = OpenAiBudgetExceededException.ErrorCode, message = ex.Message });
+                }
+                catch (CryptographicException)
+                {
+                    return Results.BadRequest(new { message = "OpenAI key could not be decrypted. Please re-save it in Settings." });
+                }
+                catch (FormatException)
+                {
+                    return Results.BadRequest(new { message = "OpenAI key could not be decrypted. Please re-save it in Settings." });
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new { message = ex.Message });
+                }
+            })
+            .WithTags("LearningSessions")
+            .WithName("GenerateLearningText");
+
+        group.MapPost("/generate-text-stream", async (
+                GenerateTextRequestDto request,
+                ClaimsPrincipal user,
+                LearningSessionAiService aiService,
+                HttpResponse response,
+                CancellationToken cancellationToken) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                {
+                    response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+
+                response.Headers.CacheControl = "no-cache";
+                response.Headers.Connection = "keep-alive";
+                response.ContentType = "text/event-stream";
+
+                string? errorMessage;
+                IAsyncEnumerable<string>? stream;
+
+                try
+                {
+                    (errorMessage, stream) = await aiService.GenerateTextStreamAsync(
+                        userId,
+                        request,
+                        cancellationToken);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    await WriteSseEventAsync(response, "error", ex.Message, cancellationToken);
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(errorMessage) || stream is null)
+                {
+                    await WriteSseEventAsync(response, "error", errorMessage ?? "Unable to start stream.", cancellationToken);
+                    return;
+                }
+
+                await foreach (var chunk in stream.WithCancellation(cancellationToken))
+                {
+                    await WriteSseEventAsync(response, "message", chunk, cancellationToken);
+                }
+
+                await WriteSseEventAsync(response, "done", "", cancellationToken);
+            })
+            .WithTags("LearningSessions")
+            .WithName("GenerateLearningTextStream");
 
         group.MapPost("/flashcard-answered", (
                 FlashCardAnsweredRequest request,
@@ -121,4 +206,23 @@ public static class LearningSessionEndpoints
             state.WrongCountTotal,
             state.CorrectStreak,
             state.LastAnsweredAt);
+
+    private static async Task WriteSseEventAsync(
+        HttpResponse response,
+        string eventName,
+        string data,
+        CancellationToken cancellationToken)
+    {
+        await response.WriteAsync($"event: {eventName}\n", cancellationToken);
+
+        var normalized = data.Replace("\r\n", "\n");
+        var lines = normalized.Split('\n');
+        foreach (var line in lines)
+        {
+            await response.WriteAsync($"data: {line}\n", cancellationToken);
+        }
+
+        await response.WriteAsync("\n", cancellationToken);
+        await response.Body.FlushAsync(cancellationToken);
+    }
 }

@@ -11,6 +11,10 @@ public sealed class UserDb : BaseEntityDb
     public string HashedPassword { get; set; } = "";
     public string DefaultForeignFlashCardLanguage { get; set; } = DefaultForeignFlashCardLanguageDefault;
     public string DefaultLocalFlashCardLanguage { get; set; } = DefaultLocalFlashCardLanguageDefault;
-
+    public string? OpenAiApiKeyEncrypted { get; set; }
+    public int OpenAiMonthlyTokenLimit { get; set; }
+    public int OpenAiTokensUsedThisMonth { get; set; }
+    public string OpenAiTokensUsedMonthKey { get; set; } = "";
+    public string LastSelectedAiProvider { get; set; } = "ollama";
     public ICollection<FlashCardDb> FlashCards { get; set; } = new List<FlashCardDb>();
 }

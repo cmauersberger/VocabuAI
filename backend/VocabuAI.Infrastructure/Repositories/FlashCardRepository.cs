@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using VocabuAI.Application.Learning;
 using VocabuAI.Domain.Learning;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
 
 namespace VocabuAI.Infrastructure.Repositories;
 
-public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRepository
+public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRepository, IFlashCardVocabularyRepository
 {
     public FlashCardRepository(AppDbContext dbContext) : base(dbContext)
     {
@@ -16,6 +17,32 @@ public sealed class FlashCardRepository : Repository<FlashCardDb>, IFlashCardRep
             .AsNoTracking()
             .Where(card => card.UserId == userId)
             .OrderByDescending(card => card.DateTimeCreated)
+            .ToArray();
+
+    public IReadOnlyCollection<string> GetForeignLanguageTermsByUserIdAndLanguageCode(
+        int userId,
+        string languageCode)
+        => DbContext.FlashCards
+            .AsNoTracking()
+            .Where(card => card.UserId == userId && card.ForeignLanguageCode == languageCode)
+            .Select(card => card.ForeignLanguage)
+            .ToArray();
+
+    public IReadOnlyCollection<LearningFlashCard> GetLearningFlashCardsByUserIdAndLanguageCode(
+        int userId,
+        string languageCode)
+        => DbContext.FlashCards
+            .AsNoTracking()
+            .Include(card => card.LearningState)
+            .Where(card => card.UserId == userId && card.ForeignLanguageCode == languageCode)
+            .Select(card => new LearningFlashCard(
+                card.Id,
+                card.ForeignLanguage,
+                card.LocalLanguage,
+                card.Synonyms,
+                card.LearningState == null ? 1 : card.LearningState.Box,
+                card.LearningState == null ? 0 : card.LearningState.CorrectStreak,
+                card.LearningState == null ? null : card.LearningState.LastAnsweredAt))
             .ToArray();
 
     public IReadOnlyCollection<FlashCardDb> GetAllWithLearningStateByUserId(int userId)
