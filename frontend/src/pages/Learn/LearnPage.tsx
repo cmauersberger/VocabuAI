@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import { stripArabicDiacritics as stripArabicDiacriticsForComparison } from "../../infrastructure/textNormalization";
 import { LanguageLevel } from "../../domain/LanguageLevel";
 import { GrammarConceptId } from "../../domain/GrammarConceptId";
 import { Language as GenerationLanguage } from "../../domain/Language";
@@ -1323,22 +1324,9 @@ function normalizeFreeTextAnswer(value: string): string {
 }
 
 function stripArabicDiacritics(value: string): string {
-  // Normalize to FormD to separate combining marks before stripping.
-  const normalized = value.normalize("NFD");
+  return stripArabicDiacriticsForComparison(value);
 
-  // Arabic diacritics and related marks to ignore for matching.
-  // Tanwin Fath (U+064B)
-  // Tanwin Damm (U+064C)
-  // Tanwin Kasr (U+064D)
-  // Fatha (U+064E)
-  // Damma (U+064F)
-  // Kasra (U+0650)
-  // Shadda (U+0651)
-  // Sukun (U+0652)
-  // Superscript Alif (U+0670)
-  // Tatweel (U+0640)
   // Quranic/extended marks (U+06D6–U+06ED)
-  return normalized.replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g, "");
 }
 
 function shuffle<T>(items: T[]): T[] {

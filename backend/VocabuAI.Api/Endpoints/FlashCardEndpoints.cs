@@ -92,6 +92,23 @@ public static class FlashCardEndpoints
             .WithTags("FlashCards")
             .WithName("UpdateFlashCard");
 
+        group.MapDelete("/delete/{id:int}", (int id, ClaimsPrincipal user, IFlashCardRepository repository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var flashCard = repository.GetByIdAndUserId(id, userId);
+                if (flashCard is null)
+                    return Results.NotFound();
+
+                repository.Remove(flashCard);
+                repository.SaveChanges();
+
+                return Results.NoContent();
+            })
+            .WithTags("FlashCards")
+            .WithName("DeleteFlashCard");
+
         group.MapGet("/list", (ClaimsPrincipal user, IFlashCardRepository repository) =>
             {
                 if (!TryGetUserId(user, out var userId))

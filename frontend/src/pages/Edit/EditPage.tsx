@@ -1,12 +1,24 @@
 import React from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 import type { FlashCardDto } from "../../domain/dtos/flashcards/FlashCardDto";
 import type { FlashCardEditDto } from "../../domain/dtos/flashcards/FlashCardEditDto";
 import Button from "../../components/Button";
 import FlashcardItem from "../../components/FlashcardItem";
 import FlashcardView from "../../components/FlashcardView";
 import FlashcardEditForm from "../../components/FlashcardEditForm";
+import FlashcardDuplicatesOverlay, {
+  type DuplicatePair
+} from "./components/FlashcardDuplicatesOverlay";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import { arePotentialDuplicateTerms } from "../../infrastructure/textNormalization";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 
 type Props = {
@@ -27,6 +39,10 @@ type SortState = { key: SortKey; direction: SortDirection } | null;
 
 const isAuthFailureResponse = (response: Response) =>
   response.status === 401 || response.status === 403;
+
+const getCardSummaryLabel = (card: FlashCardDto): string => {
+  return `${card.localLanguage} / ${card.foreignLanguage}`;
+};
 
 export default function EditPage({ authToken, onAuthFailure }: Props) {
   const apiBaseUrl = getApiBaseUrl();
@@ -49,6 +65,35 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
   const [viewCard, setViewCard] = React.useState<FlashCardDto | null>(null);
   const [formResetKey, setFormResetKey] = React.useState(0);
   const [isSeeding, setIsSeeding] = React.useState<null | "en" | "fr">(null);
+  const [isDuplicateOverlayOpen, setIsDuplicateOverlayOpen] = React.useState(false);
+  const [deletingCardId, setDeletingCardId] = React.useState<number | null>(null);
+
+  const confirmDeleteCard = React.useCallback(async (card: FlashCardDto) => {
+    const confirmationMessage =
+      "This action is irreversible. Do you really want to delete this flashcard?";
+
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined" || typeof window.confirm !== "function") {
+        return false;
+      }
+      return window.confirm(`${confirmationMessage}\n\n${getCardSummaryLabel(card)}`);
+    }
+
+    return new Promise<boolean>((resolve) => {
+      Alert.alert("Delete flashcard?", confirmationMessage, [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => resolve(false)
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => resolve(true)
+        }
+      ]);
+    });
+  }, []);
 
   const resetForm = () => {
     setEditingId(null);
@@ -209,6 +254,68 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
       setIsSeeding(null);
     }
   };
+
+  const deleteCard = React.useCallback(
+    async (card: FlashCardDto) => {
+      const confirmed = await confirmDeleteCard(card);
+      if (!confirmed) return;
+
+      setDeletingCardId(card.id);
+      setStatus("Deleting flashcard...");
+      try {
+        const response = await fetch(`${apiBaseUrl}/flashcards/delete/${card.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+
+        if (isAuthFailureResponse(response)) {
+          if (handleAuthFailure()) return;
+        }
+        if (!response.ok) {
+          setStatus("Unable to delete flashcard.");
+          return;
+        }
+
+        setCards((prev) => prev.filter((item) => item.id !== card.id));
+        setStatus(null);
+      } catch (error) {
+        if (handleAuthFailure()) return;
+        setStatus("Unable to reach the API.");
+      } finally {
+        setDeletingCardId(null);
+      }
+    },
+    [apiBaseUrl, authToken, confirmDeleteCard, handleAuthFailure]
+  );
+
+  const duplicatePairs = React.useMemo(() => {
+    const pairs: DuplicatePair[] = [];
+
+    for (let i = 0; i < cards.length; i += 1) {
+      for (let j = i + 1; j < cards.length; j += 1) {
+        const first = cards[i];
+        const second = cards[j];
+        const localMatch = arePotentialDuplicateTerms(
+          first.localLanguage,
+          first.localLanguageCode,
+          second.localLanguage,
+          second.localLanguageCode
+        );
+        const foreignMatch = arePotentialDuplicateTerms(
+          first.foreignLanguage,
+          first.foreignLanguageCode,
+          second.foreignLanguage,
+          second.foreignLanguageCode
+        );
+
+        if (localMatch || foreignMatch) {
+          pairs.push({ first, second, localMatch, foreignMatch });
+        }
+      }
+    }
+
+    return pairs;
+  }, [cards]);
 
   const editingCard =
     editingId ? cards.find((c) => c.id === editingId) ?? null : null;
@@ -458,12 +565,34 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
       </View>
 
       <View style={styles.bottomBar}>
+        <View style={styles.bottomActions}>
+          <Button
+            label="Find duplicates"
+            onClick={() => setIsDuplicateOverlayOpen(true)}
+            style={styles.secondaryButton}
+            disabled={cards.length < 2}
+          />
+        </View>
         <Button
           label="New Flashcard"
           onClick={openNewForm}
           style={styles.centeredButton}
         />
       </View>
+
+      <FlashcardDuplicatesOverlay
+        isVisible={isDuplicateOverlayOpen}
+        duplicatePairs={duplicatePairs}
+        deletingCardId={deletingCardId}
+        onClose={() => setIsDuplicateOverlayOpen(false)}
+        onEdit={(card) => {
+          setEditingId(card.id);
+          setIsFormVisible(true);
+        }}
+        onDelete={(card) => {
+          void deleteCard(card);
+        }}
+      />
 
       <FlashcardView card={viewCard} onClose={() => setViewCard(null)} />
     </View>
@@ -483,11 +612,19 @@ const styles = StyleSheet.create({
   bottomBar: {
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
     paddingTop: 8,
     width: "100%"
   },
+  bottomActions: {
+    alignItems: "center"
+  },
   centeredButton: {
     alignSelf: "center"
+  },
+  secondaryButton: {
+    backgroundColor: "rgba(148, 163, 184, 0.18)"
   },
   sectionHeader: {
     marginTop: 12,
