@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Button from "./Button";
 import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
 import type { FlashCardEditDto } from "../domain/dtos/flashcards/FlashCardEditDto";
@@ -14,6 +14,29 @@ type Props = {
   showSaveAndNew?: boolean;
 };
 
+const RTL_LANGUAGE_PREFIXES = ["ar", "fa", "he", "ur"];
+
+const normalizeLanguageCode = (languageCode?: string) =>
+  languageCode?.trim().toLowerCase() ?? "";
+
+const isRtlLanguage = (languageCode?: string) => {
+  const normalizedCode = normalizeLanguageCode(languageCode);
+  if (!normalizedCode) return false;
+  return RTL_LANGUAGE_PREFIXES.some(
+    (prefix) =>
+      normalizedCode === prefix || normalizedCode.startsWith(`${prefix}-`)
+  );
+};
+
+const getWebLanguageProps = (languageCode?: string) => {
+  if (Platform.OS !== "web") return {};
+  const normalizedCode = normalizeLanguageCode(languageCode);
+  return {
+    lang: normalizedCode || undefined,
+    dir: isRtlLanguage(normalizedCode) ? "rtl" : "ltr"
+  };
+};
+
 export default function FlashcardEditForm({
   initialCard,
   defaultForeignLanguageCode,
@@ -23,6 +46,7 @@ export default function FlashcardEditForm({
   onCancel,
   showSaveAndNew
 }: Props) {
+  const foreignLanguageInputRef = React.useRef<TextInput>(null);
   const [foreignLanguage, setForeignLanguage] = React.useState("");
   const [localLanguage, setLocalLanguage] = React.useState("");
   const [synonymsText, setSynonymsText] = React.useState("");
@@ -35,6 +59,14 @@ export default function FlashcardEditForm({
     setSynonymsText(initialCard?.synonyms ?? "");
     setAnnotation(initialCard?.annotation ?? "");
     setError(null);
+  }, [initialCard]);
+
+  React.useEffect(() => {
+    if (initialCard) return;
+    const timeoutId = setTimeout(() => {
+      foreignLanguageInputRef.current?.focus();
+    }, 40);
+    return () => clearTimeout(timeoutId);
   }, [initialCard]);
 
   const foreignLanguageCode =
@@ -93,14 +125,21 @@ export default function FlashcardEditForm({
           {formatLabel("Foreign term", foreignLanguageCode)}
         </Text>
         <TextInput
+          ref={foreignLanguageInputRef}
           value={foreignLanguage}
           onChangeText={setForeignLanguage}
           placeholder="مثال: الْقُرْآنُ"
           placeholderTextColor="#64748B"
-          style={styles.input}
+          style={[
+            styles.input,
+            isRtlLanguage(foreignLanguageCode) ? styles.inputRtl : styles.inputLtr
+          ]}
+          {...getWebLanguageProps(foreignLanguageCode)}
           autoFocus={!initialCard}
           autoCapitalize="none"
           autoCorrect={false}
+          keyboardType="default"
+          showSoftInputOnFocus
         />
 
         <Text style={styles.label}>
@@ -111,8 +150,14 @@ export default function FlashcardEditForm({
           onChangeText={setLocalLanguage}
           placeholder="e.g. The Qur'an / der Koran"
           placeholderTextColor="#64748B"
-          style={styles.input}
+          style={[
+            styles.input,
+            isRtlLanguage(localLanguageCode) ? styles.inputRtl : styles.inputLtr
+          ]}
+          {...getWebLanguageProps(localLanguageCode)}
           autoCapitalize="sentences"
+          keyboardType="default"
+          showSoftInputOnFocus
         />
 
         <Text style={styles.label}>Synonyms (comma-separated)</Text>
@@ -190,6 +235,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.25)",
     color: "#FFFFFF"
+  },
+  inputLtr: {
+    writingDirection: "ltr",
+    textAlign: "left"
+  },
+  inputRtl: {
+    writingDirection: "rtl",
+    textAlign: "right"
   },
   error: {
     color: "#FCA5A5",
