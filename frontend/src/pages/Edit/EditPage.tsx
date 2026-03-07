@@ -17,6 +17,7 @@ import FlashcardEditForm from "../../components/FlashcardEditForm";
 import FlashcardDuplicatesOverlay, {
   type DuplicatePair
 } from "./components/FlashcardDuplicatesOverlay";
+import FlashcardOverviewOverlay from "./components/FlashcardOverviewOverlay";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { arePotentialDuplicateTerms } from "../../infrastructure/textNormalization";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
@@ -36,12 +37,107 @@ type SortKey =
   | "dateTimeCreated";
 type SortDirection = "asc" | "desc";
 type SortState = { key: SortKey; direction: SortDirection } | null;
+type OverviewScope = "all" | "last40";
+
+const OVERVIEW_LAST_ADDED_LIMIT = 40;
+const OVERVIEW_MAX_COLUMN_WIDTH = 64;
 
 const isAuthFailureResponse = (response: Response) =>
   response.status === 401 || response.status === 403;
 
 const getCardSummaryLabel = (card: FlashCardDto): string => {
   return `${card.localLanguage} / ${card.foreignLanguage}`;
+};
+
+const normalizeOverviewValue = (value: string): string => {
+  return value.replace(/\s+/g, " ").trim();
+};
+
+const truncateOverviewValue = (value: string, width: number): string => {
+  if (value.length <= width) return value;
+  if (width <= 3) return value.slice(0, width);
+  return `${value.slice(0, width - 3)}...`;
+};
+
+const parseDateTimeCreated = (card: FlashCardDto): number | null => {
+  if (!card.dateTimeCreated) return null;
+  const parsed = new Date(card.dateTimeCreated).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const sortByNewestCreated = (a: FlashCardDto, b: FlashCardDto): number => {
+  const aTime = parseDateTimeCreated(a);
+  const bTime = parseDateTimeCreated(b);
+
+  if (aTime === null && bTime === null) return b.id - a.id;
+  if (aTime === null) return 1;
+  if (bTime === null) return -1;
+
+  if (aTime === bTime) return b.id - a.id;
+  return bTime - aTime;
+};
+
+const getOverviewCards = (
+  cards: FlashCardDto[],
+  scope: OverviewScope
+): FlashCardDto[] => {
+  if (scope === "all") return cards;
+  return [...cards]
+    .sort(sortByNewestCreated)
+    .slice(0, OVERVIEW_LAST_ADDED_LIMIT);
+};
+
+const buildOverviewTable = (
+  cards: FlashCardDto[],
+  scope: OverviewScope
+): string => {
+  const selectedCards = getOverviewCards(cards, scope);
+  const rows = selectedCards.map((card) => ({
+    base: normalizeOverviewValue(card.localLanguage),
+    target: normalizeOverviewValue(card.foreignLanguage)
+  }));
+  const baseHeader = "Base";
+  const targetHeader = "Target";
+
+  const baseWidth = Math.max(
+    baseHeader.length,
+    ...rows.map((row) => Math.min(row.base.length, OVERVIEW_MAX_COLUMN_WIDTH))
+  );
+  const targetWidth = Math.max(
+    targetHeader.length,
+    ...rows.map((row) => Math.min(row.target.length, OVERVIEW_MAX_COLUMN_WIDTH))
+  );
+
+  const lines = [
+    `${baseHeader.padEnd(baseWidth, " ")} | ${targetHeader.padEnd(
+      targetWidth,
+      " "
+    )}`,
+    `${"-".repeat(baseWidth)}-+-${"-".repeat(targetWidth)}`
+  ];
+
+  if (rows.length === 0) {
+    const emptyText = truncateOverviewValue("(No flashcards)", baseWidth).padEnd(
+      baseWidth,
+      " "
+    );
+    lines.push(`${emptyText} | ${"".padEnd(targetWidth, " ")}`);
+    return lines.join("\n");
+  }
+
+  rows.forEach((row) => {
+    const baseText = truncateOverviewValue(row.base, baseWidth).padEnd(
+      baseWidth,
+      " "
+    );
+    const targetText = truncateOverviewValue(row.target, targetWidth).padEnd(
+      targetWidth,
+      " "
+    );
+    lines.push(`${baseText} | ${targetText}`);
+  });
+
+  return lines.join("\n");
 };
 
 export default function EditPage({ authToken, onAuthFailure }: Props) {
@@ -67,6 +163,9 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
   const [isSeeding, setIsSeeding] = React.useState<null | "en" | "fr">(null);
   const [isDuplicateOverlayOpen, setIsDuplicateOverlayOpen] = React.useState(false);
   const [deletingCardId, setDeletingCardId] = React.useState<number | null>(null);
+  const [isOverviewMenuOpen, setIsOverviewMenuOpen] = React.useState(false);
+  const [isOverviewOverlayOpen, setIsOverviewOverlayOpen] = React.useState(false);
+  const [overviewScope, setOverviewScope] = React.useState<OverviewScope>("all");
 
   const confirmDeleteCard = React.useCallback(async (card: FlashCardDto) => {
     const confirmationMessage =
@@ -100,6 +199,7 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
   };
 
   const openNewForm = () => {
+    setIsOverviewMenuOpen(false);
     resetForm();
     setIsFormVisible(true);
     setFormResetKey((prev) => prev + 1);
@@ -399,6 +499,16 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
     return sortState.direction === "asc" ? "^" : "v";
   };
 
+  const overviewText = React.useMemo(() => {
+    return buildOverviewTable(cards, overviewScope);
+  }, [cards, overviewScope]);
+
+  const openOverview = React.useCallback((scope: OverviewScope) => {
+    setOverviewScope(scope);
+    setIsOverviewMenuOpen(false);
+    setIsOverviewOverlayOpen(true);
+  }, []);
+
   return (
     <View style={styles.container}>
       {isFormVisible ? (
@@ -421,6 +531,13 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
           accessibilityRole="button"
           onPress={() => setIsFilterOpen(false)}
           style={styles.filterBackdrop}
+        />
+      ) : null}
+      {isOverviewMenuOpen ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setIsOverviewMenuOpen(false)}
+          style={styles.overviewMenuBackdrop}
         />
       ) : null}
 
@@ -566,9 +683,51 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
 
       <View style={styles.bottomBar}>
         <View style={styles.bottomActions}>
+          <View style={styles.overviewMenuAnchor}>
+            <Button
+              label="Show overview"
+              onClick={() => {
+                setIsFilterOpen(false);
+                setIsOverviewMenuOpen((prev) => !prev);
+              }}
+              style={styles.secondaryButton}
+              disabled={cards.length === 0}
+            />
+            {isOverviewMenuOpen ? (
+              <View style={styles.overviewMenu}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => openOverview("all")}
+                  style={({ pressed }) => [
+                    styles.overviewMenuOption,
+                    pressed ? styles.overviewMenuOptionPressed : null
+                  ]}
+                >
+                  <Text style={styles.overviewMenuOptionText}>
+                    Include all flashcards
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => openOverview("last40")}
+                  style={({ pressed }) => [
+                    styles.overviewMenuOption,
+                    pressed ? styles.overviewMenuOptionPressed : null
+                  ]}
+                >
+                  <Text style={styles.overviewMenuOptionText}>
+                    Include last 40 added
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
           <Button
             label="Find duplicates"
-            onClick={() => setIsDuplicateOverlayOpen(true)}
+            onClick={() => {
+              setIsOverviewMenuOpen(false);
+              setIsDuplicateOverlayOpen(true);
+            }}
             style={styles.secondaryButton}
             disabled={cards.length < 2}
           />
@@ -593,6 +752,11 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
           void deleteCard(card);
         }}
       />
+      <FlashcardOverviewOverlay
+        isVisible={isOverviewOverlayOpen}
+        overviewText={overviewText}
+        onClose={() => setIsOverviewOverlayOpen(false)}
+      />
 
       <FlashcardView card={viewCard} onClose={() => setViewCard(null)} />
     </View>
@@ -615,10 +779,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     paddingTop: 8,
-    width: "100%"
+    width: "100%",
+    zIndex: 35
   },
   bottomActions: {
-    alignItems: "center"
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10
   },
   centeredButton: {
     alignSelf: "center"
@@ -696,6 +863,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 5
   },
+  overviewMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 32
+  },
   filterButton: {
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -730,6 +901,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12
   },
   filterOptionText: {
+    fontSize: 13,
+    color: "#E5E7EB"
+  },
+  overviewMenuAnchor: {
+    position: "relative",
+    zIndex: 36
+  },
+  overviewMenu: {
+    position: "absolute",
+    left: 0,
+    bottom: 52,
+    zIndex: 37,
+    elevation: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    minWidth: 218,
+    overflow: "hidden"
+  },
+  overviewMenuOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12
+  },
+  overviewMenuOptionPressed: {
+    backgroundColor: "rgba(148, 163, 184, 0.2)"
+  },
+  overviewMenuOptionText: {
     fontSize: 13,
     color: "#E5E7EB"
   },
