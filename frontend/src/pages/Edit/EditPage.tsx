@@ -11,6 +11,7 @@ import {
 import type { FlashCardDto } from "../../domain/dtos/flashcards/FlashCardDto";
 import type { FlashCardEditDto } from "../../domain/dtos/flashcards/FlashCardEditDto";
 import Button from "../../components/Button";
+import OptionMenuButton from "../../components/OptionMenuButton";
 import FlashcardItem from "../../components/FlashcardItem";
 import FlashcardView from "../../components/FlashcardView";
 import FlashcardEditForm from "../../components/FlashcardEditForm";
@@ -683,45 +684,24 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
 
       <View style={styles.bottomBar}>
         <View style={styles.bottomActions}>
-          <View style={styles.overviewMenuAnchor}>
-            <Button
-              label="Show overview"
-              onClick={() => {
-                setIsFilterOpen(false);
-                setIsOverviewMenuOpen((prev) => !prev);
-              }}
-              style={styles.secondaryButton}
-              disabled={cards.length === 0}
-            />
-            {isOverviewMenuOpen ? (
-              <View style={styles.overviewMenu}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => openOverview("all")}
-                  style={({ pressed }) => [
-                    styles.overviewMenuOption,
-                    pressed ? styles.overviewMenuOptionPressed : null
-                  ]}
-                >
-                  <Text style={styles.overviewMenuOptionText}>
-                    Include all flashcards
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => openOverview("last40")}
-                  style={({ pressed }) => [
-                    styles.overviewMenuOption,
-                    pressed ? styles.overviewMenuOptionPressed : null
-                  ]}
-                >
-                  <Text style={styles.overviewMenuOptionText}>
-                    Include last 40 added
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
+          <OptionMenuButton<OverviewScope>
+            label="Show overview"
+            isOpen={isOverviewMenuOpen}
+            onToggle={() => {
+              setIsFilterOpen(false);
+              setIsOverviewMenuOpen((prev) => !prev);
+            }}
+            onClose={() => setIsOverviewMenuOpen(false)}
+            onSelect={(scope) => openOverview(scope)}
+            options={[
+              { value: "all", label: "Include all flashcards" },
+              { value: "last40", label: "Include last 40 added" }
+            ]}
+            containerStyle={styles.overviewMenuAnchor}
+            buttonStyle={styles.secondaryButton}
+            disabled={cards.length === 0}
+            menuMinWidth={218}
+          />
           <Button
             label="Find duplicates"
             onClick={() => {
@@ -907,30 +887,6 @@ const styles = StyleSheet.create({
   overviewMenuAnchor: {
     position: "relative",
     zIndex: 36
-  },
-  overviewMenu: {
-    position: "absolute",
-    left: 0,
-    bottom: 52,
-    zIndex: 37,
-    elevation: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.25)",
-    backgroundColor: "rgba(15, 23, 42, 0.95)",
-    minWidth: 218,
-    overflow: "hidden"
-  },
-  overviewMenuOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 12
-  },
-  overviewMenuOptionPressed: {
-    backgroundColor: "rgba(148, 163, 184, 0.2)"
-  },
-  overviewMenuOptionText: {
-    fontSize: 13,
-    color: "#E5E7EB"
   },
   status: {
     color: "#93C5FD"

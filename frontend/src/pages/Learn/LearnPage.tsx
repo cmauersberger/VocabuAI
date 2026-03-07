@@ -11,6 +11,7 @@ import {
   View
 } from "react-native";
 import Button from "../../components/Button";
+import OptionMenuButton from "../../components/OptionMenuButton";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { stripArabicDiacritics as stripArabicDiacriticsForComparison } from "../../infrastructure/textNormalization";
 import { LanguageLevel } from "../../domain/LanguageLevel";
@@ -86,8 +87,8 @@ export default function LearnPage({
     null
   );
   const [isGeneratingText, setIsGeneratingText] = React.useState(false);
-  const [selectedProvider, setSelectedProvider] =
-    React.useState<AiProvider>("ollama");
+  const [isGenerateProviderMenuOpen, setIsGenerateProviderMenuOpen] =
+    React.useState(false);
   const [openAiUsage, setOpenAiUsage] = React.useState<{
     tokenUsage: GenerateTextResponseDto["tokenUsage"] | null;
     usagePercent: number | null;
@@ -190,21 +191,15 @@ export default function LearnPage({
     loadUserSettings();
   }, [loadUserSettings]);
 
-  React.useEffect(() => {
-    if (!userSettings?.lastSelectedAiProvider) return;
-    setSelectedProvider(userSettings.lastSelectedAiProvider);
-  }, [userSettings?.lastSelectedAiProvider]);
-
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
 
   const totalSteps = tasks.length;
   const answeredSteps = Math.min(totalAnswers, totalSteps);
   const progress = totalSteps === 0 ? 0 : answeredSteps / totalSteps;
-  const openAiNeedsConfig =
-    selectedProvider === "openai" &&
-    userSettings &&
-    (!userSettings.hasOpenAiKey || userSettings.openAiMonthlyTokenLimit <= 0);
+  const isOpenAiConfigured = Boolean(
+    userSettings?.hasOpenAiKey && userSettings.openAiMonthlyTokenLimit > 0
+  );
 
   const resetSessionState = React.useCallback(() => {
     setSession(null);
@@ -259,7 +254,8 @@ export default function LearnPage({
     }
   };
 
-  const generateText = async () => {
+  const generateText = async (provider: AiProvider) => {
+    setIsGenerateProviderMenuOpen(false);
     setGenerationStatus("Generating text...");
     setGenerationError(null);
     setGeneratedText(null);
@@ -284,10 +280,7 @@ export default function LearnPage({
       return;
     }
 
-    if (
-      selectedProvider === "openai" &&
-      (!userSettings.hasOpenAiKey || userSettings.openAiMonthlyTokenLimit <= 0)
-    ) {
+    if (provider === "openai" && !isOpenAiConfigured) {
       setGenerationStatus(null);
       setGenerationError(
         "OpenAI is not configured. Set a key and monthly limit in Settings."
@@ -314,10 +307,10 @@ export default function LearnPage({
       ],
       style: TextStyle.Unspecified,
       languageLevel: LanguageLevel.A1,
-      provider: selectedProvider
+      provider
     };
 
-    if (selectedProvider === "openai") {
+    if (provider === "openai") {
       await generateTextNonStreaming(request);
       return;
     }
@@ -652,36 +645,36 @@ export default function LearnPage({
           onClick={startSession}
           style={styles.centeredButton}
         />
-        <View style={styles.providerPicker}>
+        {isGenerateProviderMenuOpen ? (
           <Pressable
-            onPress={() => setSelectedProvider("ollama")}
-            style={[
-              styles.providerOption,
-              selectedProvider === "ollama" ? styles.providerOptionActive : null
-            ]}
-          >
-            <Text style={styles.providerLabel}>Local (Ollama)</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setSelectedProvider("openai")}
-            style={[
-              styles.providerOption,
-              selectedProvider === "openai" ? styles.providerOptionActive : null
-            ]}
-          >
-            <Text style={styles.providerLabel}>OpenAI (Paid)</Text>
-          </Pressable>
-        </View>
-        {openAiNeedsConfig ? (
+            accessibilityRole="button"
+            onPress={() => setIsGenerateProviderMenuOpen(false)}
+            style={styles.providerMenuBackdrop}
+          />
+        ) : null}
+        {!isOpenAiConfigured ? (
           <Text style={styles.providerWarning}>
-            OpenAI is selected but not configured. Update it in Settings.
+            OpenAI option is unavailable until configured in Settings.
           </Text>
         ) : null}
-        <Button
+        <OptionMenuButton<AiProvider>
           label="Generate Text"
-          onClick={generateText}
-          style={styles.centeredButton}
-          disabled={isGeneratingText || isLoadingSettings || openAiNeedsConfig}
+          isOpen={isGenerateProviderMenuOpen}
+          onToggle={() => setIsGenerateProviderMenuOpen((prev) => !prev)}
+          onClose={() => setIsGenerateProviderMenuOpen(false)}
+          onSelect={(provider) => {
+            void generateText(provider);
+          }}
+          options={[
+            { value: "ollama", label: "Local (Ollama)" },
+            {
+              value: "openai",
+              label: "OpenAI (Paid)",
+              disabled: !isOpenAiConfigured
+            }
+          ]}
+          containerStyle={styles.generateProviderMenu}
+          disabled={isGeneratingText || isLoadingSettings}
         />
         {generationStatus ? (
           <Text style={styles.status}>{generationStatus}</Text>
@@ -1694,28 +1687,13 @@ const styles = StyleSheet.create({
   centeredButton: {
     alignSelf: "center"
   },
-  providerPicker: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-    flexWrap: "wrap"
+  providerMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 8
   },
-  providerOption: {
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.35)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: "rgba(15, 23, 42, 0.6)"
-  },
-  providerOptionActive: {
-    borderColor: "#38BDF8",
-    backgroundColor: "rgba(56, 189, 248, 0.18)"
-  },
-  providerLabel: {
-    color: "#E2E8F0",
-    fontSize: 13,
-    fontWeight: "600"
+  generateProviderMenu: {
+    alignSelf: "center",
+    zIndex: 9
   },
   providerWarning: {
     color: "#F59E0B",
