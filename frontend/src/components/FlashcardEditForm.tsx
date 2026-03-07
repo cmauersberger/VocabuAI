@@ -98,6 +98,7 @@ export default function FlashcardEditForm({
           placeholder="مثال: الْقُرْآنُ"
           placeholderTextColor="#64748B"
           style={styles.input}
+          autoFocus={!initialCard}
           autoCapitalize="none"
           autoCorrect={false}
         />
