@@ -1,8 +1,10 @@
 import React from "react";
 import {
+  Alert,
   Animated,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View
 } from "react-native";
@@ -14,6 +16,7 @@ import { GrammarConceptId } from "../../domain/GrammarConceptId";
 import { TextStyle } from "../../domain/TextStyle";
 import type { GenerateTextRequestDto } from "../../domain/dtos/GenerateTextRequestDto";
 import type { GenerateTextResponseDto } from "../../domain/dtos/GenerateTextResponseDto";
+import type { GeneratedLearningTextDto } from "../../domain/dtos/GeneratedLearningTextDto";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import type { AiProvider } from "../../domain/AiProvider";
 import type { LearningSession } from "../../domain/LearningSession";
@@ -81,6 +84,18 @@ export default function LearnPage({
     tokenUsage: GenerateTextResponseDto["tokenUsage"] | null;
     usagePercent: number | null;
   } | null>(null);
+  const [isHistoryOverlayOpen, setIsHistoryOverlayOpen] = React.useState(false);
+  const [generatedTextHistory, setGeneratedTextHistory] = React.useState<
+    GeneratedLearningTextDto[]
+  >([]);
+  const [expandedPromptIds, setExpandedPromptIds] = React.useState<Set<number>>(
+    () => new Set()
+  );
+  const [historyStatus, setHistoryStatus] = React.useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
+  const [deletingHistoryId, setDeletingHistoryId] = React.useState<number | null>(
+    null
+  );
   const stopStreamingRef = React.useRef(false);
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
@@ -178,6 +193,162 @@ export default function LearnPage({
   React.useEffect(() => {
     loadUserSettings();
   }, [loadUserSettings]);
+
+  const loadGeneratedTextHistory = React.useCallback(async () => {
+    setIsLoadingHistory(true);
+    setHistoryStatus("Loading generated text history...");
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/learning-session/generated-text-history/list`,
+        {
+          headers: { Authorization: `Bearer ${authToken}` }
+        }
+      );
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        setHistoryStatus("Unable to load generated text history.");
+        return;
+      }
+
+      const payload = (await response.json()) as GeneratedLearningTextDto[];
+      setGeneratedTextHistory(payload);
+      setExpandedPromptIds((prev) => {
+        const next = new Set<number>();
+        const availableIds = new Set(payload.map((item) => item.id));
+        prev.forEach((id) => {
+          if (availableIds.has(id)) {
+            next.add(id);
+          }
+        });
+        return next;
+      });
+      setHistoryStatus(
+        payload.length === 0 ? "No generated text has been saved yet." : null
+      );
+    } catch {
+      if (handleAuthFailure()) return;
+      setHistoryStatus("Unable to reach the API.");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
+
+  React.useEffect(() => {
+    if (!isHistoryOverlayOpen) return;
+    void loadGeneratedTextHistory();
+  }, [isHistoryOverlayOpen, loadGeneratedTextHistory]);
+
+  const confirmDeleteGeneratedText = React.useCallback(async () => {
+    const confirmationMessage =
+      "This action is irreversible. Do you really want to delete this generated text?";
+
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined" || typeof window.confirm !== "function") {
+        return false;
+      }
+      return window.confirm(confirmationMessage);
+    }
+
+    return new Promise<boolean>((resolve) => {
+      Alert.alert("Delete generated text?", confirmationMessage, [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => resolve(false)
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => resolve(true)
+        }
+      ]);
+    });
+  }, []);
+
+  const deleteGeneratedText = React.useCallback(
+    async (item: GeneratedLearningTextDto) => {
+      const shouldDelete = await confirmDeleteGeneratedText();
+      if (!shouldDelete) return;
+
+      setDeletingHistoryId(item.id);
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/learning-session/generated-text-history/delete/${item.id}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${authToken}` }
+          }
+        );
+
+        if (isAuthFailureResponse(response)) {
+          if (handleAuthFailure()) return;
+        }
+        if (!response.ok && response.status !== 404) {
+          setHistoryStatus("Unable to delete generated text.");
+          return;
+        }
+
+        const nextItems = generatedTextHistory.filter(
+          (historyItem) => historyItem.id !== item.id
+        );
+        setGeneratedTextHistory(nextItems);
+        setExpandedPromptIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+        setHistoryStatus(
+          nextItems.length === 0 ? "No generated text has been saved yet." : null
+        );
+      } catch {
+        if (handleAuthFailure()) return;
+        setHistoryStatus("Unable to reach the API.");
+      } finally {
+        setDeletingHistoryId(null);
+      }
+    },
+    [
+      apiBaseUrl,
+      authToken,
+      confirmDeleteGeneratedText,
+      generatedTextHistory,
+      handleAuthFailure
+    ]
+  );
+
+  const formatHistoryTimestamp = React.useCallback((isoDate: string) => {
+    const parsed = new Date(isoDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return isoDate;
+    }
+    return parsed.toLocaleString();
+  }, []);
+
+  const formatHistoryEngineLabel = React.useCallback((provider: string) => {
+    const normalized = provider.trim().toLowerCase();
+    if (normalized === "openai") {
+      return "OpenAI (Paid)";
+    }
+    if (normalized === "ollama") {
+      return "Local (Open)";
+    }
+    return provider;
+  }, []);
+
+  const togglePromptExpanded = React.useCallback((id: number) => {
+    setExpandedPromptIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const currentTask =
     session && currentIndex < tasks.length ? tasks[currentIndex] : null;
@@ -633,37 +804,48 @@ export default function LearnPage({
           onClick={startSession}
           style={styles.centeredButton}
         />
-        {isGenerateProviderMenuOpen ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setIsGenerateProviderMenuOpen(false)}
-            style={styles.providerMenuBackdrop}
-          />
-        ) : null}
-        {!isOpenAiConfigured ? (
-          <Text style={styles.providerWarning}>
-            OpenAI option is unavailable until configured in Settings.
-          </Text>
-        ) : null}
-        <OptionMenuButton<AiProvider>
-          label="Generate Text"
-          isOpen={isGenerateProviderMenuOpen}
-          onToggle={() => setIsGenerateProviderMenuOpen((prev) => !prev)}
-          onClose={() => setIsGenerateProviderMenuOpen(false)}
-          onSelect={(provider) => {
-            void generateText(provider);
-          }}
-          options={[
-            { value: "ollama", label: "Local (Ollama)" },
-            {
-              value: "openai",
-              label: "OpenAI (Paid)",
-              disabled: !isOpenAiConfigured
-            }
-          ]}
-          containerStyle={styles.generateProviderMenu}
-          disabled={isGeneratingText || isLoadingSettings}
-        />
+        <View style={styles.generationActionsSection}>
+          <Text style={styles.generationActionsTitle}>Text generation</Text>
+          {isGenerateProviderMenuOpen ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsGenerateProviderMenuOpen(false)}
+              style={styles.providerMenuBackdrop}
+            />
+          ) : null}
+          {!isOpenAiConfigured ? (
+            <Text style={styles.providerWarning}>
+              OpenAI option is unavailable until configured in Settings.
+            </Text>
+          ) : null}
+          <View style={styles.generationButtonsGroup}>
+            <Button
+              label="Generated Text History"
+              onClick={() => setIsHistoryOverlayOpen(true)}
+              style={styles.historySecondaryButton}
+              disabled={isLoadingHistory}
+            />
+            <OptionMenuButton<AiProvider>
+              label="Generate Text"
+              isOpen={isGenerateProviderMenuOpen}
+              onToggle={() => setIsGenerateProviderMenuOpen((prev) => !prev)}
+              onClose={() => setIsGenerateProviderMenuOpen(false)}
+              onSelect={(provider) => {
+                void generateText(provider);
+              }}
+              options={[
+                { value: "ollama", label: "Local (Ollama)" },
+                {
+                  value: "openai",
+                  label: "OpenAI (Paid)",
+                  disabled: !isOpenAiConfigured
+                }
+              ]}
+              containerStyle={styles.generateProviderMenu}
+              disabled={isGeneratingText || isLoadingSettings}
+            />
+          </View>
+        </View>
         {generationStatus ? (
           <Text style={styles.status}>{generationStatus}</Text>
         ) : null}
@@ -696,6 +878,76 @@ export default function LearnPage({
             <Text style={styles.resultItem}>
               Total time: {summary.durationSeconds}s
             </Text>
+          </View>
+        ) : null}
+        {isHistoryOverlayOpen ? (
+          <View style={styles.historyOverlay} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsHistoryOverlayOpen(false)}
+              style={styles.historyBackdrop}
+            />
+            <View style={styles.historyPanel}>
+              <View style={styles.historyHeader}>
+                <Text style={styles.historyTitle}>Generated Text History</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setIsHistoryOverlayOpen(false)}
+                  style={styles.historyCloseButton}
+                >
+                  <Text style={styles.historyCloseButtonText}>Close</Text>
+                </Pressable>
+              </View>
+              {historyStatus ? (
+                <Text style={styles.historyStatus}>{historyStatus}</Text>
+              ) : null}
+              <ScrollView contentContainerStyle={styles.historyListContent}>
+                {generatedTextHistory.map((item) => (
+                  <View key={item.id} style={styles.historyCard}>
+                    <Text style={styles.historyItemMeta}>
+                      {formatHistoryTimestamp(item.dateTimeCreated)} |{" "}
+                      Engine: {formatHistoryEngineLabel(item.provider)}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => togglePromptExpanded(item.id)}
+                      style={({ pressed }) => [
+                        styles.historyPromptToggleRow,
+                        pressed ? styles.historyPromptToggleRowPressed : null
+                      ]}
+                    >
+                      <Text style={styles.historyLabel}>Prompt</Text>
+                      <Text style={styles.historyPromptToggleText}>
+                        {expandedPromptIds.has(item.id) ? "Hide" : "Show"}
+                      </Text>
+                    </Pressable>
+                    {expandedPromptIds.has(item.id) ? (
+                      <Text style={styles.historyPrompt}>{item.prompt}</Text>
+                    ) : null}
+                    <Text style={styles.historyLabel}>Text</Text>
+                    <Text style={styles.historyText}>{item.text}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        void deleteGeneratedText(item);
+                      }}
+                      disabled={deletingHistoryId === item.id}
+                      style={({ pressed }) => [
+                        styles.historyDeleteButton,
+                        pressed ? styles.historyDeleteButtonPressed : null,
+                        deletingHistoryId === item.id
+                          ? styles.historyDeleteButtonDisabled
+                          : null
+                      ]}
+                    >
+                      <Text style={styles.historyDeleteText}>
+                        {deletingHistoryId === item.id ? "Deleting..." : "Delete"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
           </View>
         ) : null}
       </View>

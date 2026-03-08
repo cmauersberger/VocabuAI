@@ -80,6 +80,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IFlashCardRepository, FlashCardRepository>();
 builder.Services.AddScoped<IFlashCardVocabularyRepository, FlashCardRepository>();
 builder.Services.AddScoped<IFlashCardLearningStateRepository, FlashCardLearningStateRepository>();
+builder.Services.AddScoped<IGeneratedLearningTextRepository, GeneratedLearningTextRepository>();
 builder.Services.AddScoped<FlashCardLearningProgressService>();
 builder.Services.AddScoped<FlashCardImportExportService>();
 builder.Services.AddScoped<ILearningSessionService, LearningSessionService>();

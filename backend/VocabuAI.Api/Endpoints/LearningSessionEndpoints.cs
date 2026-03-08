@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 using VocabuAI.Application.Learning;
 using VocabuAI.Application.Learning.Generation;
+using VocabuAI.Application.Learning.Generation.Contracts;
 using VocabuAI.Api.Dtos;
 using VocabuAI.Api.Infrastructure;
 using VocabuAI.Domain.Learning;
@@ -59,6 +61,7 @@ public static class LearningSessionEndpoints
                 GenerateTextRequestDto request,
                 ClaimsPrincipal user,
                 LearningSessionAiService aiService,
+                IGeneratedLearningTextRepository generatedLearningTextRepository,
                 CancellationToken cancellationToken) =>
             {
                 if (!TryGetUserId(user, out var userId))
@@ -66,8 +69,23 @@ public static class LearningSessionEndpoints
 
                 try
                 {
-                    var response = await aiService.GenerateTextAsync(userId, request, cancellationToken);
-                    return Results.Ok(response);
+                    var result = await aiService.GenerateTextAsync(userId, request, cancellationToken);
+
+                    if (result.Response.IsValid &&
+                        !string.IsNullOrWhiteSpace(result.Response.Text) &&
+                        !string.IsNullOrWhiteSpace(result.Prompt))
+                    {
+                        generatedLearningTextRepository.Add(new GeneratedLearningTextDb
+                        {
+                            UserId = userId,
+                            Prompt = result.Prompt,
+                            Text = result.Response.Text,
+                            Provider = result.Response.Provider.ToApiValue()
+                        });
+                        await generatedLearningTextRepository.SaveChangesAsync(cancellationToken);
+                    }
+
+                    return Results.Ok(result.Response);
                 }
                 catch (OpenAiBudgetExceededException ex)
                 {
@@ -93,6 +111,7 @@ public static class LearningSessionEndpoints
                 GenerateTextRequestDto request,
                 ClaimsPrincipal user,
                 LearningSessionAiService aiService,
+                IGeneratedLearningTextRepository generatedLearningTextRepository,
                 HttpResponse response,
                 CancellationToken cancellationToken) =>
             {
@@ -107,11 +126,12 @@ public static class LearningSessionEndpoints
                 response.ContentType = "text/event-stream";
 
                 string? errorMessage;
+                string? prompt;
                 IAsyncEnumerable<string>? stream;
 
                 try
                 {
-                    (errorMessage, stream) = await aiService.GenerateTextStreamAsync(
+                    (errorMessage, prompt, stream) = await aiService.GenerateTextStreamAsync(
                         userId,
                         request,
                         cancellationToken);
@@ -128,15 +148,63 @@ public static class LearningSessionEndpoints
                     return;
                 }
 
+                var generatedTextBuilder = new StringBuilder();
                 await foreach (var chunk in stream.WithCancellation(cancellationToken))
                 {
+                    generatedTextBuilder.Append(chunk);
                     await WriteSseEventAsync(response, "message", chunk, cancellationToken);
+                }
+
+                if (!string.IsNullOrWhiteSpace(prompt) && generatedTextBuilder.Length > 0)
+                {
+                    generatedLearningTextRepository.Add(new GeneratedLearningTextDb
+                    {
+                        UserId = userId,
+                        Prompt = prompt,
+                        Text = generatedTextBuilder.ToString(),
+                        Provider = AiProvider.Ollama.ToApiValue()
+                    });
+                    await generatedLearningTextRepository.SaveChangesAsync(cancellationToken);
                 }
 
                 await WriteSseEventAsync(response, "done", "", cancellationToken);
             })
             .WithTags("LearningSessions")
             .WithName("GenerateLearningTextStream");
+
+        group.MapGet("/generated-text-history/list", (
+                ClaimsPrincipal user,
+                IGeneratedLearningTextRepository generatedLearningTextRepository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var items = generatedLearningTextRepository.GetAllByUserId(userId)
+                    .Select(ToDto)
+                    .ToArray();
+                return Results.Ok(items);
+            })
+            .WithTags("LearningSessions")
+            .WithName("GetGeneratedLearningTextHistory");
+
+        group.MapDelete("/generated-text-history/delete/{id:int}", (
+                int id,
+                ClaimsPrincipal user,
+                IGeneratedLearningTextRepository generatedLearningTextRepository) =>
+            {
+                if (!TryGetUserId(user, out var userId))
+                    return Results.Unauthorized();
+
+                var item = generatedLearningTextRepository.GetByIdAndUserId(id, userId);
+                if (item is null)
+                    return Results.NotFound(new { message = "Generated text not found." });
+
+                generatedLearningTextRepository.Remove(item);
+                generatedLearningTextRepository.SaveChanges();
+                return Results.NoContent();
+            })
+            .WithTags("LearningSessions")
+            .WithName("DeleteGeneratedLearningText");
 
         group.MapPost("/flashcard-answered", (
                 FlashCardAnsweredRequest request,
@@ -206,6 +274,14 @@ public static class LearningSessionEndpoints
             state.WrongCountTotal,
             state.CorrectStreak,
             state.LastAnsweredAt);
+
+    private static GeneratedLearningTextDto ToDto(GeneratedLearningTextDb entity)
+        => new(
+            entity.Id,
+            entity.Prompt,
+            entity.Text,
+            entity.Provider,
+            entity.DateTimeCreated);
 
     private static async Task WriteSseEventAsync(
         HttpResponse response,

@@ -18,6 +18,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<UserDb> Users => Set<UserDb>();
     public DbSet<FlashCardDb> FlashCards => Set<FlashCardDb>();
     public DbSet<FlashCardLearningStateDb> FlashCardLearningStates => Set<FlashCardLearningStateDb>();
+    public DbSet<GeneratedLearningTextDb> GeneratedLearningTexts => Set<GeneratedLearningTextDb>();
 
     public override int SaveChanges()
     {
@@ -63,6 +64,10 @@ public sealed class AppDbContext : DbContext
             entity.Property(e => e.DateTimeCreated).IsRequired();
             entity.Property(e => e.DateTimeUpdated).IsRequired();
             entity.HasMany(e => e.FlashCards)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.GeneratedLearningTexts)
                 .WithOne(e => e.User)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -120,6 +125,20 @@ public sealed class AppDbContext : DbContext
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.FlashCardId).IsUnique();
+        });
+
+        modelBuilder.Entity<GeneratedLearningTextDb>(entity =>
+        {
+            entity.ToTable("GeneratedLearningTexts");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.Prompt).IsRequired();
+            entity.Property(e => e.Text).IsRequired();
+            entity.Property(e => e.Provider).IsRequired();
+            entity.Property(e => e.DateTimeCreated).IsRequired();
+            entity.Property(e => e.DateTimeUpdated).IsRequired();
+            entity.HasIndex(e => e.UserId);
         });
     }
 

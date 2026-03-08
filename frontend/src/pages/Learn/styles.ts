@@ -260,6 +260,29 @@ const styles = StyleSheet.create({
   centeredButton: {
     alignSelf: "center"
   },
+  generationActionsSection: {
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    backgroundColor: "rgba(15, 23, 42, 0.62)",
+    padding: 12,
+    gap: 10
+  },
+  generationActionsTitle: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    textAlign: "center"
+  },
+  generationButtonsGroup: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10
+  },
   providerMenuBackdrop: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 8
@@ -272,9 +295,128 @@ const styles = StyleSheet.create({
     color: "#F59E0B",
     textAlign: "center"
   },
+  historySecondaryButton: {
+    alignSelf: "center",
+    backgroundColor: "#334155",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.5)"
+  },
   openAiUsageText: {
     color: "#93C5FD",
     textAlign: "center"
+  },
+  historyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 56
+  },
+  historyBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.78)"
+  },
+  historyPanel: {
+    width: "92%",
+    maxWidth: 880,
+    maxHeight: "88%",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    backgroundColor: "rgba(15, 23, 42, 0.97)",
+    padding: 14,
+    gap: 10
+  },
+  historyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  historyTitle: {
+    color: "#F8FAFC",
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  historyCloseButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    backgroundColor: "rgba(148, 163, 184, 0.16)"
+  },
+  historyCloseButtonText: {
+    color: "#E2E8F0",
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  historyStatus: {
+    color: "#93C5FD",
+    fontSize: 13
+  },
+  historyListContent: {
+    gap: 12,
+    paddingBottom: 8
+  },
+  historyCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    backgroundColor: "rgba(15, 23, 42, 0.7)",
+    padding: 12,
+    gap: 8
+  },
+  historyItemMeta: {
+    color: "#94A3B8",
+    fontSize: 12
+  },
+  historyLabel: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase"
+  },
+  historyPromptToggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  historyPromptToggleRowPressed: {
+    opacity: 0.85
+  },
+  historyPromptToggleText: {
+    color: "#93C5FD",
+    fontSize: 12,
+    fontWeight: "600"
+  },
+  historyPrompt: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    lineHeight: 20
+  },
+  historyText: {
+    color: "#F8FAFC",
+    fontSize: 20,
+    lineHeight: 30
+  },
+  historyDeleteButton: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(249, 115, 22, 0.45)",
+    backgroundColor: "rgba(249, 115, 22, 0.18)"
+  },
+  historyDeleteButtonPressed: {
+    opacity: 0.88
+  },
+  historyDeleteButtonDisabled: {
+    opacity: 0.6
+  },
+  historyDeleteText: {
+    color: "#FDBA74",
+    fontSize: 12,
+    fontWeight: "600"
   },
   correctionActions: {
     flexDirection: "row",
