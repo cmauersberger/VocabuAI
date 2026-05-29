@@ -13,7 +13,10 @@ import {
 import type { PronunciationLookupResponseDto } from "../domain/dtos/PronunciationLookupResponseDto";
 import { isArabicLanguageCode } from "../infrastructure/textNormalization";
 import { lookupPronunciationAsync } from "../infrastructure/pronunciationLookup";
-import { playPronunciationAudioAsync } from "../infrastructure/pronunciationPlayer";
+import {
+  playPronunciationAudioAsync,
+  speakPronunciationFallbackAsync
+} from "../infrastructure/pronunciationPlayer";
 
 const ARABIC_LETTER_REGEX = /[\u0600-\u06FF]/;
 const ARABIC_LOOKUP_SANITIZER_REGEX = /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g;
@@ -31,6 +34,16 @@ type Props = {
 type TokenItem = {
   display: string;
   lookupTerm: string;
+};
+
+type PronunciationDetails = {
+  attributionUrl: string | null;
+  creator: string | null;
+  credit: string | null;
+  licenseShortName: string | null;
+  source: string;
+  summary: string;
+  term: string;
 };
 
 export default function PronounceableArabicText({
@@ -96,6 +109,7 @@ function PronunciationButton({
   const [lookup, setLookup] = React.useState<PronunciationLookupResponseDto | null>(
     null
   );
+  const [details, setDetails] = React.useState<PronunciationDetails | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isUnavailable, setIsUnavailable] = React.useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
@@ -105,13 +119,65 @@ function PronunciationButton({
       lookup ??
       (await lookupPronunciationAsync(apiBaseUrl, authToken, term, languageCode));
     setLookup(nextLookup);
-
-    if (!nextLookup.isAvailable || !nextLookup.audioUrl) {
-      setIsUnavailable(true);
-      return null;
-    }
-
     return nextLookup;
+  };
+
+  const buildHumanDetails = (
+    nextLookup: PronunciationLookupResponseDto
+  ): PronunciationDetails => ({
+    attributionUrl: nextLookup.attributionUrl,
+    creator: nextLookup.creator,
+    credit: nextLookup.credit,
+    licenseShortName: nextLookup.licenseShortName,
+    source: nextLookup.source ?? "wikimedia-commons",
+    summary: "Human recording from Wikimedia Commons.",
+    term: nextLookup.term
+  });
+
+  const buildFallbackDetails = (reason?: string | null): PronunciationDetails => ({
+    attributionUrl: null,
+    creator: null,
+    credit: null,
+    licenseShortName: null,
+    source: "device-speech",
+    summary:
+      reason && reason.trim()
+        ? `${reason.trim()} Using device/browser speech synthesis instead.`
+        : "Using device/browser speech synthesis because no human recording is available.",
+    term
+  });
+
+  const resolvePlaybackAsync = async () => {
+    try {
+      const nextLookup = await loadLookupAsync();
+      if (nextLookup.isAvailable && nextLookup.audioUrl) {
+        const nextDetails = buildHumanDetails(nextLookup);
+        setDetails(nextDetails);
+        return {
+          audioUrl: nextLookup.audioUrl,
+          details: nextDetails,
+          mode: "human" as const
+        };
+      }
+
+      const nextDetails = buildFallbackDetails(nextLookup.message);
+      setDetails(nextDetails);
+      return {
+        audioUrl: null,
+        details: nextDetails,
+        mode: "tts" as const
+      };
+    } catch {
+      const nextDetails = buildFallbackDetails(
+        "Pronunciation lookup is temporarily unavailable."
+      );
+      setDetails(nextDetails);
+      return {
+        audioUrl: null,
+        details: nextDetails,
+        mode: "tts" as const
+      };
+    }
   };
 
   const loadAndPlay = async () => {
@@ -121,18 +187,14 @@ function PronunciationButton({
 
     setIsLoading(true);
     try {
-      const nextLookup = await loadLookupAsync();
-      if (!nextLookup) {
-        return;
+      const playback = await resolvePlaybackAsync();
+      if (playback.mode === "human") {
+        await playPronunciationAudioAsync(playback.audioUrl);
+      } else {
+        await speakPronunciationFallbackAsync(term, languageCode);
       }
-
-      const audioUrl = nextLookup.audioUrl;
-      if (!audioUrl) {
-        return;
-      }
-
-      await playPronunciationAudioAsync(audioUrl);
     } catch {
+      setIsUnavailable(true);
     } finally {
       setIsLoading(false);
     }
@@ -150,11 +212,7 @@ function PronunciationButton({
 
     setIsLoading(true);
     try {
-      const nextLookup = await loadLookupAsync();
-      if (!nextLookup) {
-        return;
-      }
-
+      await resolvePlaybackAsync();
       setIsDetailsOpen(true);
     } catch {
     } finally {
@@ -163,7 +221,7 @@ function PronunciationButton({
   };
 
   const openAttributionLink = async () => {
-    const attributionUrl = lookup?.attributionUrl;
+    const attributionUrl = details?.attributionUrl;
     if (!attributionUrl) {
       return;
     }
@@ -174,7 +232,7 @@ function PronunciationButton({
     }
   };
 
-  const buttonUnavailable = isUnavailable || (lookup !== null && !lookup.isAvailable);
+  const buttonUnavailable = isUnavailable;
   const label = isLoading ? "..." : buttonUnavailable ? "N/A" : "Play";
 
   return (
@@ -195,7 +253,7 @@ function PronunciationButton({
         >
           <Text style={styles.buttonLabel}>{label}</Text>
         </Pressable>
-        {lookup?.isAvailable ? (
+        {details ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Show pronunciation details for ${term}`}
@@ -213,7 +271,7 @@ function PronunciationButton({
           </Pressable>
         ) : null}
       </View>
-      {lookup?.isAvailable ? (
+      {details ? (
         <Modal
           visible={isDetailsOpen}
           transparent
@@ -227,21 +285,22 @@ function PronunciationButton({
               style={styles.modalBackdrop}
             />
             <View style={styles.modalCard}>
-              <Text style={styles.detailsTerm}>{lookup.term}</Text>
+              <Text style={styles.detailsTerm}>{details.term}</Text>
+              <Text style={styles.detailsText}>{details.summary}</Text>
               <Text style={styles.detailsText}>
-                License: {lookup.licenseShortName ?? "Unknown"}
+                Source: {details.source}
               </Text>
               <Text style={styles.detailsText}>
-                Creator: {lookup.creator ?? "Unknown"}
+                License: {details.licenseShortName ?? "Not applicable"}
               </Text>
-              {lookup.credit ? (
-                <Text style={styles.detailsText}>Credit: {lookup.credit}</Text>
+              <Text style={styles.detailsText}>
+                Creator: {details.creator ?? "Not applicable"}
+              </Text>
+              {details.credit ? (
+                <Text style={styles.detailsText}>Credit: {details.credit}</Text>
               ) : null}
-              <Text style={styles.detailsText}>
-                Source: {lookup.source ?? "wikimedia-commons"}
-              </Text>
               <View style={styles.modalActions}>
-                {lookup.attributionUrl ? (
+                {details.attributionUrl ? (
                   <Pressable
                     accessibilityRole="link"
                     onPress={() => {
