@@ -357,7 +357,9 @@ export default function LearnPage({
   const answeredSteps = Math.min(totalAnswers, totalSteps);
   const progress = totalSteps === 0 ? 0 : answeredSteps / totalSteps;
   const isOpenAiConfigured = Boolean(
-    userSettings?.hasOpenAiKey && userSettings.openAiMonthlyTokenLimit > 0
+    userSettings?.hasOpenAiKey &&
+      userSettings.openAiMonthlyTokenLimit > 0 &&
+      !userSettings.openAiConfigurationError
   );
 
   const resetSessionState = React.useCallback(() => {
@@ -442,7 +444,8 @@ export default function LearnPage({
     if (provider === "openai" && !isOpenAiConfigured) {
       setGenerationStatus(null);
       setGenerationError(
-        "OpenAI is not configured. Set a key and monthly limit in Settings."
+        userSettings.openAiConfigurationError ||
+          "OpenAI is not configured. Set a key and monthly limit in Settings."
       );
       setIsGeneratingText(false);
       return;
@@ -815,7 +818,8 @@ export default function LearnPage({
           ) : null}
           {!isOpenAiConfigured ? (
             <Text style={styles.providerWarning}>
-              OpenAI option is unavailable until configured in Settings.
+              {userSettings?.openAiConfigurationError ||
+                "OpenAI option is unavailable until configured in Settings."}
             </Text>
           ) : null}
           <View style={styles.generationButtonsGroup}>

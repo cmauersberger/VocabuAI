@@ -578,9 +578,13 @@ export default function SettingsPage({
           encrypted on the server.
         </Text>
         {settings?.hasOpenAiKey ? (
-          <Text style={styles.muted}>
-            Key on file: ****{settings.openAiKeyLast4 ?? "----"}
-          </Text>
+          settings.openAiConfigurationError ? (
+            <Text style={styles.status}>{settings.openAiConfigurationError}</Text>
+          ) : (
+            <Text style={styles.muted}>
+              Key on file: ****{settings.openAiKeyLast4 ?? "----"}
+            </Text>
+          )
         ) : (
           <Text style={styles.muted}>No OpenAI key configured.</Text>
         )}

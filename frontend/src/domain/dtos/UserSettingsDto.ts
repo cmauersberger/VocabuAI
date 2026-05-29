@@ -6,6 +6,7 @@ export type UserSettingsDto = {
   defaultLocalFlashCardLanguage: string;
   hasOpenAiKey: boolean;
   openAiKeyLast4: string | null;
+  openAiConfigurationError: string | null;
   openAiMonthlyTokenLimit: number;
   openAiTokensUsedThisMonth: number;
   monthKey: string;

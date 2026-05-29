@@ -50,10 +50,14 @@ public sealed class OpenAiTextClient : IAiTextClient
             }
         }, options: JsonOptions);
 
-        using var response = await _client.SendAsync(httpRequest, ct);
+        using var response = await SendAsync(httpRequest, ct);
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"OpenAI request failed with status {(int)response.StatusCode}.");
+            var error = await TryReadErrorMessageAsync(response, ct);
+            var message = string.IsNullOrWhiteSpace(error)
+                ? $"OpenAI request failed with status {(int)response.StatusCode}."
+                : $"OpenAI request failed: {error}";
+            throw new InvalidOperationException(message);
         }
 
         var payload = await response.Content.ReadFromJsonAsync<OpenAiChatCompletionResponse>(JsonOptions, ct);
@@ -64,6 +68,35 @@ public sealed class OpenAiTextClient : IAiTextClient
             : new AiTokenUsage(usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens);
 
         return new AiTextResult(text, AiProvider.OpenAi, tokenUsage, null, null, null);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage httpRequest, CancellationToken ct)
+    {
+        try
+        {
+            return await _client.SendAsync(httpRequest, ct);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new InvalidOperationException("OpenAI request timed out.");
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException($"OpenAI request failed: {ex.Message}");
+        }
+    }
+
+    private static async Task<string?> TryReadErrorMessageAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var payload = await response.Content.ReadFromJsonAsync<OpenAiErrorResponse>(JsonOptions, ct);
+            return payload?.Error?.Message;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private sealed class OpenAiChatCompletionRequest
@@ -99,5 +132,15 @@ public sealed class OpenAiTextClient : IAiTextClient
 
         [JsonPropertyName("total_tokens")]
         public int TotalTokens { get; init; }
+    }
+
+    private sealed class OpenAiErrorResponse
+    {
+        public OpenAiError? Error { get; init; }
+    }
+
+    private sealed class OpenAiError
+    {
+        public string? Message { get; init; }
     }
 }

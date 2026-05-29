@@ -15,6 +15,8 @@ namespace VocabuAI.Api.Endpoints;
 
 public static class LearningSessionEndpoints
 {
+    private sealed class LearningSessionEndpointsLogging { }
+
     public static void MapLearningSessionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/learning-session");
@@ -62,6 +64,7 @@ public static class LearningSessionEndpoints
                 ClaimsPrincipal user,
                 LearningSessionAiService aiService,
                 IGeneratedLearningTextRepository generatedLearningTextRepository,
+                ILogger<LearningSessionEndpointsLogging> logger,
                 CancellationToken cancellationToken) =>
             {
                 if (!TryGetUserId(user, out var userId))
@@ -75,14 +78,21 @@ public static class LearningSessionEndpoints
                         !string.IsNullOrWhiteSpace(result.Response.Text) &&
                         !string.IsNullOrWhiteSpace(result.Prompt))
                     {
-                        generatedLearningTextRepository.Add(new GeneratedLearningTextDb
+                        try
                         {
-                            UserId = userId,
-                            Prompt = result.Prompt,
-                            Text = result.Response.Text,
-                            Provider = result.Response.Provider.ToApiValue()
-                        });
-                        await generatedLearningTextRepository.SaveChangesAsync(cancellationToken);
+                            generatedLearningTextRepository.Add(new GeneratedLearningTextDb
+                            {
+                                UserId = userId,
+                                Prompt = result.Prompt,
+                                Text = result.Response.Text,
+                                Provider = result.Response.Provider.ToApiValue()
+                            });
+                            await generatedLearningTextRepository.SaveChangesAsync(cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "Failed to persist generated text history for user {UserId}.", userId);
+                        }
                     }
 
                     return Results.Ok(result.Response);
@@ -103,6 +113,13 @@ public static class LearningSessionEndpoints
                 {
                     return Results.BadRequest(new { message = ex.Message });
                 }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Unexpected text generation failure for user {UserId}.", userId);
+                    return Results.Json(
+                        new { message = "The generated text could not be saved to history, or an unexpected server error occurred." },
+                        statusCode: StatusCodes.Status500InternalServerError);
+                }
             })
             .WithTags("LearningSessions")
             .WithName("GenerateLearningText");
@@ -112,6 +129,7 @@ public static class LearningSessionEndpoints
                 ClaimsPrincipal user,
                 LearningSessionAiService aiService,
                 IGeneratedLearningTextRepository generatedLearningTextRepository,
+                ILogger<LearningSessionEndpointsLogging> logger,
                 HttpResponse response,
                 CancellationToken cancellationToken) =>
             {
@@ -157,14 +175,21 @@ public static class LearningSessionEndpoints
 
                 if (!string.IsNullOrWhiteSpace(prompt) && generatedTextBuilder.Length > 0)
                 {
-                    generatedLearningTextRepository.Add(new GeneratedLearningTextDb
+                    try
                     {
-                        UserId = userId,
-                        Prompt = prompt,
-                        Text = generatedTextBuilder.ToString(),
-                        Provider = AiProvider.Ollama.ToApiValue()
-                    });
-                    await generatedLearningTextRepository.SaveChangesAsync(cancellationToken);
+                        generatedLearningTextRepository.Add(new GeneratedLearningTextDb
+                        {
+                            UserId = userId,
+                            Prompt = prompt,
+                            Text = generatedTextBuilder.ToString(),
+                            Provider = AiProvider.Ollama.ToApiValue()
+                        });
+                        await generatedLearningTextRepository.SaveChangesAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to persist streamed generated text history for user {UserId}.", userId);
+                    }
                 }
 
                 await WriteSseEventAsync(response, "done", "", cancellationToken);

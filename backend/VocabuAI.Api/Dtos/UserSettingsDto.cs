@@ -9,6 +9,7 @@ public sealed record UserSettingsDto(
     string DefaultLocalFlashCardLanguage,
     bool HasOpenAiKey,
     string? OpenAiKeyLast4,
+    string? OpenAiConfigurationError,
     int OpenAiMonthlyTokenLimit,
     int OpenAiTokensUsedThisMonth,
     string MonthKey,

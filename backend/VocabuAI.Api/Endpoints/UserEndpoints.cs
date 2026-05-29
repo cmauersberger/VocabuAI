@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Repositories;
@@ -150,18 +151,9 @@ public static class UserEndpoints
                     users.SaveChanges();
                 }
 
-                var response = new UserSettingsDto(
-                    currentUser.DefaultForeignFlashCardLanguage,
-                    currentUser.DefaultLocalFlashCardLanguage,
-                    HasOpenAiKey(currentUser),
-                    GetOpenAiKeyLast4(currentUser, protector),
-                    currentUser.OpenAiMonthlyTokenLimit,
-                    currentUser.OpenAiTokensUsedThisMonth,
-                    currentUser.OpenAiTokensUsedMonthKey,
-                    OpenAiUsageCalculator.GetUsagePercent(
-                        currentUser.OpenAiTokensUsedThisMonth,
-                        currentUser.OpenAiMonthlyTokenLimit),
-                    ResolveStoredProvider(currentUser.LastSelectedAiProvider));
+                var response = BuildUserSettingsDto(
+                    currentUser,
+                    protector);
 
                 return Results.Ok(response);
             })
@@ -189,18 +181,9 @@ public static class UserEndpoints
                 users.Update(currentUser);
                 users.SaveChanges();
 
-                var response = new UserSettingsDto(
-                    currentUser.DefaultForeignFlashCardLanguage,
-                    currentUser.DefaultLocalFlashCardLanguage,
-                    HasOpenAiKey(currentUser),
-                    GetOpenAiKeyLast4(currentUser, protector),
-                    currentUser.OpenAiMonthlyTokenLimit,
-                    currentUser.OpenAiTokensUsedThisMonth,
-                    currentUser.OpenAiTokensUsedMonthKey,
-                    OpenAiUsageCalculator.GetUsagePercent(
-                        currentUser.OpenAiTokensUsedThisMonth,
-                        currentUser.OpenAiMonthlyTokenLimit),
-                    ResolveStoredProvider(currentUser.LastSelectedAiProvider));
+                var response = BuildUserSettingsDto(
+                    currentUser,
+                    protector);
 
                 return Results.Ok(response);
             })
@@ -246,18 +229,9 @@ public static class UserEndpoints
                     users.Update(currentUser);
                     users.SaveChanges();
 
-                    var response = new UserSettingsDto(
-                        currentUser.DefaultForeignFlashCardLanguage,
-                        currentUser.DefaultLocalFlashCardLanguage,
-                        HasOpenAiKey(currentUser),
-                        GetOpenAiKeyLast4(currentUser, protector),
-                        currentUser.OpenAiMonthlyTokenLimit,
-                        currentUser.OpenAiTokensUsedThisMonth,
-                        currentUser.OpenAiTokensUsedMonthKey,
-                        OpenAiUsageCalculator.GetUsagePercent(
-                            currentUser.OpenAiTokensUsedThisMonth,
-                            currentUser.OpenAiMonthlyTokenLimit),
-                        ResolveStoredProvider(currentUser.LastSelectedAiProvider));
+                    var response = BuildUserSettingsDto(
+                        currentUser,
+                        protector);
 
                     return Results.Ok(response);
                 }
@@ -283,18 +257,9 @@ public static class UserEndpoints
                 users.Update(currentUser);
                 users.SaveChanges();
 
-                var response = new UserSettingsDto(
-                    currentUser.DefaultForeignFlashCardLanguage,
-                    currentUser.DefaultLocalFlashCardLanguage,
-                    HasOpenAiKey(currentUser),
-                    GetOpenAiKeyLast4(currentUser, protector),
-                    currentUser.OpenAiMonthlyTokenLimit,
-                    currentUser.OpenAiTokensUsedThisMonth,
-                    currentUser.OpenAiTokensUsedMonthKey,
-                    OpenAiUsageCalculator.GetUsagePercent(
-                        currentUser.OpenAiTokensUsedThisMonth,
-                        currentUser.OpenAiMonthlyTokenLimit),
-                    ResolveStoredProvider(currentUser.LastSelectedAiProvider));
+                var response = BuildUserSettingsDto(
+                    currentUser,
+                    protector);
 
                 return Results.Ok(response);
             })
@@ -384,6 +349,21 @@ public static class UserEndpoints
     private static bool HasOpenAiKey(UserDb user)
         => !string.IsNullOrWhiteSpace(user.OpenAiApiKeyEncrypted);
 
+    private static UserSettingsDto BuildUserSettingsDto(UserDb user, ISecretProtector protector)
+        => new(
+            user.DefaultForeignFlashCardLanguage,
+            user.DefaultLocalFlashCardLanguage,
+            HasOpenAiKey(user),
+            GetOpenAiKeyLast4(user, protector),
+            GetOpenAiConfigurationError(user, protector),
+            user.OpenAiMonthlyTokenLimit,
+            user.OpenAiTokensUsedThisMonth,
+            user.OpenAiTokensUsedMonthKey,
+            OpenAiUsageCalculator.GetUsagePercent(
+                user.OpenAiTokensUsedThisMonth,
+                user.OpenAiMonthlyTokenLimit),
+            ResolveStoredProvider(user.LastSelectedAiProvider));
+
     private static string? GetOpenAiKeyLast4(UserDb user, ISecretProtector protector)
     {
         if (string.IsNullOrWhiteSpace(user.OpenAiApiKeyEncrypted))
@@ -409,6 +389,35 @@ public static class UserEndpoints
         catch
         {
             return null;
+        }
+    }
+
+    private static string? GetOpenAiConfigurationError(UserDb user, ISecretProtector protector)
+    {
+        if (string.IsNullOrWhiteSpace(user.OpenAiApiKeyEncrypted))
+        {
+            return null;
+        }
+
+        if (!protector.IsEnabled)
+        {
+            return "Stored OpenAI key is unavailable because APP_SECRET_ENCRYPTION_KEY is missing on the server.";
+        }
+
+        try
+        {
+            var decrypted = protector.Decrypt(user.OpenAiApiKeyEncrypted);
+            return string.IsNullOrWhiteSpace(decrypted)
+                ? "Stored OpenAI key is empty. Please save it again in Settings."
+                : null;
+        }
+        catch (CryptographicException)
+        {
+            return "Stored OpenAI key could not be decrypted. This usually means APP_SECRET_ENCRYPTION_KEY changed. Restore the original server key or re-save the OpenAI key.";
+        }
+        catch (FormatException)
+        {
+            return "Stored OpenAI key has an invalid encrypted format. Please save it again in Settings.";
         }
     }
 
