@@ -1,15 +1,20 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
+import { getApiBaseUrl } from "../infrastructure/apiBaseUrl";
 import { formatRelativeTime } from "../infrastructure/formatRelativeTime";
+import PronounceableArabicText from "./PronounceableArabicText";
 
 type Props = {
   card: FlashCardDto;
+  authToken: string;
   onEdit?: () => void;
   onView?: () => void;
 };
 
-export default function FlashcardItem({ card, onEdit, onView }: Props) {
+export default function FlashcardItem({ card, authToken, onEdit, onView }: Props) {
+  const apiBaseUrl = getApiBaseUrl();
+
   return (
     <View style={styles.row}>
       <View style={styles.boxColumn}>
@@ -23,9 +28,15 @@ export default function FlashcardItem({ card, onEdit, onView }: Props) {
           <Text style={styles.synonyms}>{card.synonyms}</Text>
         ) : null}
       </View>
-      <Text style={styles.arabic} numberOfLines={1}>
-        {card.foreignLanguage}
-      </Text>
+      <View style={styles.arabicCell}>
+        <PronounceableArabicText
+          apiBaseUrl={apiBaseUrl}
+          authToken={authToken}
+          text={card.foreignLanguage}
+          languageCode={card.foreignLanguageCode}
+          textStyle={styles.arabic}
+        />
+      </View>
       <Text style={styles.lastLearned}>
         {formatRelativeTime(card.lastAnsweredAt)}
       </Text>
@@ -88,6 +99,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#A5B4FC"
+  },
+  arabicCell: {
+    minWidth: 92,
+    alignItems: "flex-end"
   },
   arabic: {
     minWidth: 80,

@@ -12,6 +12,7 @@ using VocabuAI.Application.Learning;
 using VocabuAI.Application.Learning.Ai.PromptBuilders;
 using VocabuAI.Application.Learning.Ai.PromptBuilders.LanguageRules;
 using VocabuAI.Application.Learning.Generation;
+using VocabuAI.Application.Pronunciation;
 using VocabuAI.Application.Security;
 using VocabuAI.Api.Endpoints;
 using VocabuAI.Api.Infrastructure;
@@ -19,6 +20,7 @@ using VocabuAI.Infrastructure;
 using VocabuAI.Infrastructure.Database;
 using VocabuAI.Infrastructure.Database.Entities;
 using VocabuAI.Infrastructure.Llm;
+using VocabuAI.Infrastructure.Pronunciation;
 using VocabuAI.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -104,6 +106,11 @@ builder.Services.AddHttpClient<OpenAiTextClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.openai.com/");
     client.Timeout = TimeSpan.FromSeconds(60);
+});
+
+builder.Services.AddHttpClient<IPronunciationLookupService, WikimediaPronunciationLookupService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
 });
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
@@ -213,6 +220,7 @@ api.MapUserEndpoints();
 api.MapFlashCardEndpoints();
 api.MapLearningSessionEndpoints();
 api.MapFlashCardBackupEndpoints();
+api.MapPronunciationEndpoints();
 
 app.Run();
 

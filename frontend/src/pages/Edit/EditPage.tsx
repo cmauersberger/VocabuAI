@@ -671,6 +671,7 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
               <FlashcardItem
                 key={card.id}
                 card={card}
+                authToken={authToken}
                 onView={() => setViewCard(card)}
                 onEdit={() => {
                   setEditingId(card.id);
@@ -738,7 +739,11 @@ export default function EditPage({ authToken, onAuthFailure }: Props) {
         onClose={() => setIsOverviewOverlayOpen(false)}
       />
 
-      <FlashcardView card={viewCard} onClose={() => setViewCard(null)} />
+      <FlashcardView
+        card={viewCard}
+        authToken={authToken}
+        onClose={() => setViewCard(null)}
+      />
     </View>
   );
 }
