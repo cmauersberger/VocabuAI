@@ -37,4 +37,4 @@
             curl -X POST "${{ vars.DEPLOY_WEBHOOK_URL }}" \
               -H "Content-Type: application/json" \
               -d "{\"token\":\"${{ secrets.DEPLOY_TOKEN }}\"}" \
-              --fail
+              --fail-with-body

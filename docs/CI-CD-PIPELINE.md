@@ -80,7 +80,11 @@ docker compose up -d     # Container neu starten
 docker image prune -f    # Alte Images aufräumen
 ```
 
-**Sicherheit:** Header `X-Deploy-Token` muss stimmen (in GitHub Secrets hinterlegt).
+**Sicherheit:** Der Webhook sollte den Token aus dem JSON-Body lesen:
+
+- JSON-Body `{ "token": "..." }`
+
+Der fruehere Header `X-Deploy-Token` ist fuer GitHub-Action-Requests ueber Cloudflare nicht verlaesslich und sollte serverseitig nicht mehr die einzige Authentifizierungsquelle sein.
 
 ---
 
