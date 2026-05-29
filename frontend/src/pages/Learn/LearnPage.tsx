@@ -1003,6 +1003,8 @@ export default function LearnPage({
         <LearnTaskRenderer
           key={currentTask.guid}
           task={currentTask}
+          authToken={authToken}
+          userSettings={userSettings}
           onAnswer={recordAnswer}
           disabled={isAdvancing}
           showCorrectAnswer={correctionGuid === currentTask.guid}

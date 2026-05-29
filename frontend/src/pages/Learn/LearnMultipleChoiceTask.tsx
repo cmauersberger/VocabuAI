@@ -1,13 +1,22 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import PronounceableArabicText from "../../components/PronounceableArabicText";
 import type { MultipleChoiceTaskPayload } from "../../domain/MultipleChoiceTaskPayload";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import { LearningSelectionMode } from "../../domain/LearningSelectionMode";
 import Button from "../../components/Button";
+import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import LearnCorrectionActions from "./LearnCorrectionActions";
-import { getLanguageLabel } from "./learnUtils";
+import {
+  getLanguageCodeForLearningText,
+  getLanguageLabel,
+  getOppositeLanguageCodeForLearningText
+} from "./learnUtils";
 import styles from "./styles";
 
 type Props = {
+  authToken: string;
+  userSettings: UserSettingsDto | null;
   payload: MultipleChoiceTaskPayload;
   onAnswer: (isCorrect: boolean) => void;
   disabled: boolean;
@@ -17,6 +26,8 @@ type Props = {
 };
 
 export default function LearnMultipleChoiceTask({
+  authToken,
+  userSettings,
   payload,
   onAnswer,
   disabled,
@@ -24,6 +35,15 @@ export default function LearnMultipleChoiceTask({
   onContinue,
   onCheat
 }: Props) {
+  const apiBaseUrl = getApiBaseUrl();
+  const questionLanguageCode = getLanguageCodeForLearningText(
+    payload.question.language,
+    userSettings
+  );
+  const optionLanguageCode = getOppositeLanguageCodeForLearningText(
+    payload.question.language,
+    userSettings
+  );
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
   const submit = () => {
@@ -46,13 +66,26 @@ export default function LearnMultipleChoiceTask({
       <Text style={styles.questionLabel}>
         {getLanguageLabel(payload.question.language)}
       </Text>
-      <Text style={styles.questionText}>{payload.question.value}</Text>
+      <PronounceableArabicText
+        apiBaseUrl={apiBaseUrl}
+        authToken={authToken}
+        text={payload.question.value}
+        languageCode={questionLanguageCode}
+        textStyle={styles.questionText}
+      />
       {showCorrectAnswer ? (
         <View style={styles.correctAnswerBlock}>
           <Text style={styles.incorrectLabel}>Incorrect</Text>
-          <Text style={styles.correctAnswerText}>
-            {correctOptions.join(" / ")}
-          </Text>
+          {correctOptions.map((option, index) => (
+            <PronounceableArabicText
+              key={`${option}-${index}`}
+              apiBaseUrl={apiBaseUrl}
+              authToken={authToken}
+              text={option}
+              languageCode={optionLanguageCode}
+              textStyle={styles.correctAnswerText}
+            />
+          ))}
           <LearnCorrectionActions onContinue={onContinue} onCheat={onCheat} />
         </View>
       ) : (
@@ -62,23 +95,34 @@ export default function LearnMultipleChoiceTask({
               {payload.options.map((option, index) => {
                 const selected = index === selectedIndex;
                 return (
-                  <Pressable
+                  <View
                     key={`${option.value}-${index}`}
-                    style={[
-                      styles.optionRow,
-                      selected ? styles.optionRowSelected : null
-                    ]}
-                    onPress={() => setSelectedIndex(index)}
-                    disabled={disabled}
+                    style={styles.optionRowContainer}
                   >
-                    <View
+                    <Pressable
                       style={[
-                        styles.radio,
-                        selected ? styles.radioSelected : null
+                        styles.optionRow,
+                        selected ? styles.optionRowSelected : null
                       ]}
+                      onPress={() => setSelectedIndex(index)}
+                      disabled={disabled}
+                    >
+                      <View
+                        style={[
+                          styles.radio,
+                          selected ? styles.radioSelected : null
+                        ]}
+                      />
+                      <Text style={styles.optionText}>{option.value}</Text>
+                    </Pressable>
+                    <PronounceableArabicText
+                      apiBaseUrl={apiBaseUrl}
+                      authToken={authToken}
+                      text={option.value}
+                      languageCode={optionLanguageCode}
+                      textStyle={styles.hiddenArabicText}
                     />
-                    <Text style={styles.optionText}>{option.value}</Text>
-                  </Pressable>
+                  </View>
                 );
               })}
             </View>

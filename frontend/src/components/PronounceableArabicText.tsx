@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Linking,
+  Modal,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -207,41 +208,67 @@ function PronunciationButton({
             ]}
           >
             <Text style={styles.infoButtonLabel}>
-              {isDetailsOpen ? "Hide" : "Info"}
+              Info
             </Text>
           </Pressable>
         ) : null}
       </View>
-      {isDetailsOpen && lookup?.isAvailable ? (
-        <View style={styles.detailsCard}>
-          <Text style={styles.detailsTerm}>{lookup.term}</Text>
-          <Text style={styles.detailsText}>
-            License: {lookup.licenseShortName ?? "Unknown"}
-          </Text>
-          <Text style={styles.detailsText}>
-            Creator: {lookup.creator ?? "Unknown"}
-          </Text>
-          {lookup.credit ? (
-            <Text style={styles.detailsText}>Credit: {lookup.credit}</Text>
-          ) : null}
-          <Text style={styles.detailsText}>
-            Source: {lookup.source ?? "wikimedia-commons"}
-          </Text>
-          {lookup.attributionUrl ? (
+      {lookup?.isAvailable ? (
+        <Modal
+          visible={isDetailsOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsDetailsOpen(false)}
+        >
+          <View style={styles.modalRoot}>
             <Pressable
-              accessibilityRole="link"
-              onPress={() => {
-                void openAttributionLink();
-              }}
-              style={({ pressed }) => [
-                styles.detailsLinkButton,
-                pressed ? styles.buttonPressed : null
-              ]}
-            >
-              <Text style={styles.detailsLinkText}>Open source</Text>
-            </Pressable>
-          ) : null}
-        </View>
+              accessibilityRole="button"
+              onPress={() => setIsDetailsOpen(false)}
+              style={styles.modalBackdrop}
+            />
+            <View style={styles.modalCard}>
+              <Text style={styles.detailsTerm}>{lookup.term}</Text>
+              <Text style={styles.detailsText}>
+                License: {lookup.licenseShortName ?? "Unknown"}
+              </Text>
+              <Text style={styles.detailsText}>
+                Creator: {lookup.creator ?? "Unknown"}
+              </Text>
+              {lookup.credit ? (
+                <Text style={styles.detailsText}>Credit: {lookup.credit}</Text>
+              ) : null}
+              <Text style={styles.detailsText}>
+                Source: {lookup.source ?? "wikimedia-commons"}
+              </Text>
+              <View style={styles.modalActions}>
+                {lookup.attributionUrl ? (
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => {
+                      void openAttributionLink();
+                    }}
+                    style={({ pressed }) => [
+                      styles.detailsLinkButton,
+                      pressed ? styles.buttonPressed : null
+                    ]}
+                  >
+                    <Text style={styles.detailsLinkText}>Open source</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setIsDetailsOpen(false)}
+                  style={({ pressed }) => [
+                    styles.closeButton,
+                    pressed ? styles.buttonPressed : null
+                  ]}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       ) : null}
     </View>
   );
@@ -327,31 +354,46 @@ const styles = StyleSheet.create({
     textAlign: "center",
     textTransform: "uppercase"
   },
-  detailsCard: {
-    maxWidth: 220,
-    borderRadius: 10,
+  modalRoot: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.72)"
+  },
+  modalCard: {
+    width: "86%",
+    maxWidth: 320,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.3)",
-    backgroundColor: "rgba(15, 23, 42, 0.92)",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 4
+    backgroundColor: "rgba(15, 23, 42, 0.98)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6
   },
   detailsTerm: {
     color: "#F8FAFC",
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "700",
-    textAlign: "right"
+    textAlign: "center"
   },
   detailsText: {
     color: "#CBD5E1",
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: "right"
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "left"
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4
   },
   detailsLinkButton: {
-    alignSelf: "flex-end",
-    marginTop: 2,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
@@ -361,6 +403,20 @@ const styles = StyleSheet.create({
   },
   detailsLinkText: {
     color: "#BAE6FD",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase"
+  },
+  closeButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.4)",
+    backgroundColor: "rgba(51, 65, 85, 0.55)"
+  },
+  closeButtonText: {
+    color: "#E2E8F0",
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase"

@@ -1,5 +1,6 @@
 import React from "react";
 import type { LearningTask } from "../../domain/LearningTask";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import { LearningTaskType } from "../../domain/LearningTaskType";
 import type { MappingAnswerResult } from "./types";
 import LearnFreeTextTask from "./LearnFreeTextTask";
@@ -8,6 +9,8 @@ import LearnMultipleChoiceTask from "./LearnMultipleChoiceTask";
 
 type Props = {
   task: LearningTask;
+  authToken: string;
+  userSettings: UserSettingsDto | null;
   onAnswer: (isCorrect: boolean, mappingAnswers?: MappingAnswerResult[]) => void;
   disabled: boolean;
   showCorrectAnswer: boolean;
@@ -17,6 +20,8 @@ type Props = {
 
 export default function LearnTaskRenderer({
   task,
+  authToken,
+  userSettings,
   onAnswer,
   disabled,
   showCorrectAnswer,
@@ -27,6 +32,8 @@ export default function LearnTaskRenderer({
     case LearningTaskType.FreeText:
       return (
         <LearnFreeTextTask
+          authToken={authToken}
+          userSettings={userSettings}
           payload={task.payload}
           onAnswer={onAnswer}
           disabled={disabled}
@@ -38,6 +45,8 @@ export default function LearnTaskRenderer({
     case LearningTaskType.MultipleChoice:
       return (
         <LearnMultipleChoiceTask
+          authToken={authToken}
+          userSettings={userSettings}
           payload={task.payload}
           onAnswer={onAnswer}
           disabled={disabled}
@@ -49,6 +58,8 @@ export default function LearnTaskRenderer({
     case LearningTaskType.Mapping:
       return (
         <LearnMappingTask
+          authToken={authToken}
+          userSettings={userSettings}
           items={task.payload.items}
           onAnswer={onAnswer}
           disabled={disabled}
