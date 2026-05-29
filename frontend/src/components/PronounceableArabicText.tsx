@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Linking,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -96,6 +97,21 @@ function PronunciationButton({
   );
   const [isLoading, setIsLoading] = React.useState(false);
   const [isUnavailable, setIsUnavailable] = React.useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
+
+  const loadLookupAsync = async () => {
+    const nextLookup =
+      lookup ??
+      (await lookupPronunciationAsync(apiBaseUrl, authToken, term, languageCode));
+    setLookup(nextLookup);
+
+    if (!nextLookup.isAvailable || !nextLookup.audioUrl) {
+      setIsUnavailable(true);
+      return null;
+    }
+
+    return nextLookup;
+  };
 
   const loadAndPlay = async () => {
     if (isUnavailable || isLoading) {
@@ -104,20 +120,56 @@ function PronunciationButton({
 
     setIsLoading(true);
     try {
-      const nextLookup =
-        lookup ??
-        (await lookupPronunciationAsync(apiBaseUrl, authToken, term, languageCode));
-      setLookup(nextLookup);
-
-      if (!nextLookup.isAvailable || !nextLookup.audioUrl) {
-        setIsUnavailable(true);
+      const nextLookup = await loadLookupAsync();
+      if (!nextLookup) {
         return;
       }
 
-      await playPronunciationAudioAsync(nextLookup.audioUrl);
+      const audioUrl = nextLookup.audioUrl;
+      if (!audioUrl) {
+        return;
+      }
+
+      await playPronunciationAudioAsync(audioUrl);
     } catch {
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const toggleDetails = async () => {
+    if (isDetailsOpen) {
+      setIsDetailsOpen(false);
+      return;
+    }
+
+    if (isUnavailable || isLoading) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const nextLookup = await loadLookupAsync();
+      if (!nextLookup) {
+        return;
+      }
+
+      setIsDetailsOpen(true);
+    } catch {
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openAttributionLink = async () => {
+    const attributionUrl = lookup?.attributionUrl;
+    if (!attributionUrl) {
+      return;
+    }
+
+    try {
+      await Linking.openURL(attributionUrl);
+    } catch {
     }
   };
 
@@ -125,21 +177,73 @@ function PronunciationButton({
   const label = isLoading ? "..." : buttonUnavailable ? "N/A" : "Play";
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Play pronunciation for ${term}`}
-      onPress={() => {
-        void loadAndPlay();
-      }}
-      disabled={isLoading || buttonUnavailable}
-      style={({ pressed }) => [
-        styles.button,
-        pressed ? styles.buttonPressed : null,
-        buttonUnavailable ? styles.buttonDisabled : null
-      ]}
-    >
-      <Text style={styles.buttonLabel}>{label}</Text>
-    </Pressable>
+    <View style={styles.buttonStack}>
+      <View style={styles.buttonRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Play pronunciation for ${term}`}
+          onPress={() => {
+            void loadAndPlay();
+          }}
+          disabled={isLoading || buttonUnavailable}
+          style={({ pressed }) => [
+            styles.button,
+            pressed ? styles.buttonPressed : null,
+            buttonUnavailable ? styles.buttonDisabled : null
+          ]}
+        >
+          <Text style={styles.buttonLabel}>{label}</Text>
+        </Pressable>
+        {lookup?.isAvailable ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Show pronunciation details for ${term}`}
+            onPress={() => {
+              void toggleDetails();
+            }}
+            style={({ pressed }) => [
+              styles.infoButton,
+              pressed ? styles.buttonPressed : null
+            ]}
+          >
+            <Text style={styles.infoButtonLabel}>
+              {isDetailsOpen ? "Hide" : "Info"}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {isDetailsOpen && lookup?.isAvailable ? (
+        <View style={styles.detailsCard}>
+          <Text style={styles.detailsTerm}>{lookup.term}</Text>
+          <Text style={styles.detailsText}>
+            License: {lookup.licenseShortName ?? "Unknown"}
+          </Text>
+          <Text style={styles.detailsText}>
+            Creator: {lookup.creator ?? "Unknown"}
+          </Text>
+          {lookup.credit ? (
+            <Text style={styles.detailsText}>Credit: {lookup.credit}</Text>
+          ) : null}
+          <Text style={styles.detailsText}>
+            Source: {lookup.source ?? "wikimedia-commons"}
+          </Text>
+          {lookup.attributionUrl ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => {
+                void openAttributionLink();
+              }}
+              style={({ pressed }) => [
+                styles.detailsLinkButton,
+                pressed ? styles.buttonPressed : null
+              ]}
+            >
+              <Text style={styles.detailsLinkText}>Open source</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -171,6 +275,15 @@ const styles = StyleSheet.create({
     gap: 8
   },
   tokenRow: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 6
+  },
+  buttonStack: {
+    alignItems: "flex-end",
+    gap: 6
+  },
+  buttonRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6
@@ -196,6 +309,60 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#E0F2FE",
     textAlign: "center",
+    textTransform: "uppercase"
+  },
+  infoButton: {
+    minWidth: 34,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.4)",
+    backgroundColor: "rgba(51, 65, 85, 0.55)"
+  },
+  infoButtonLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#E2E8F0",
+    textAlign: "center",
+    textTransform: "uppercase"
+  },
+  detailsCard: {
+    maxWidth: 220,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.3)",
+    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 4
+  },
+  detailsTerm: {
+    color: "#F8FAFC",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right"
+  },
+  detailsText: {
+    color: "#CBD5E1",
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "right"
+  },
+  detailsLinkButton: {
+    alignSelf: "flex-end",
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.45)",
+    backgroundColor: "rgba(56, 189, 248, 0.16)"
+  },
+  detailsLinkText: {
+    color: "#BAE6FD",
+    fontSize: 11,
+    fontWeight: "700",
     textTransform: "uppercase"
   }
 });
