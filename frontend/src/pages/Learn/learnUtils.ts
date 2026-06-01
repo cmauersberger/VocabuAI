@@ -3,6 +3,7 @@ import { Language as GenerationLanguage } from "../../domain/Language";
 import type { LearningTask } from "../../domain/LearningTask";
 import { LearningLanguage } from "../../domain/LearningLanguage";
 import { LearningTaskType } from "../../domain/LearningTaskType";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 
 const IGNORE_VOCALIZATION = true;
 
@@ -111,6 +112,36 @@ export function getLanguageLabel(language: LearningLanguage): string {
     default:
       return "Unknown";
   }
+}
+
+export function getLanguageCodeForLearningText(
+  language: LearningLanguage,
+  userSettings: UserSettingsDto | null
+): string {
+  if (language === LearningLanguage.Foreign) {
+    return userSettings?.defaultForeignFlashCardLanguage ?? "";
+  }
+
+  if (language === LearningLanguage.Local) {
+    return userSettings?.defaultLocalFlashCardLanguage ?? "";
+  }
+
+  return "";
+}
+
+export function getOppositeLanguageCodeForLearningText(
+  language: LearningLanguage,
+  userSettings: UserSettingsDto | null
+): string {
+  if (language === LearningLanguage.Foreign) {
+    return userSettings?.defaultLocalFlashCardLanguage ?? "";
+  }
+
+  if (language === LearningLanguage.Local) {
+    return userSettings?.defaultForeignFlashCardLanguage ?? "";
+  }
+
+  return "";
 }
 
 export function removeLastTaskByGuid(

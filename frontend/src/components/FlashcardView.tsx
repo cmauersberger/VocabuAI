@@ -1,13 +1,18 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { FlashCardDto } from "../domain/dtos/flashcards/FlashCardDto";
+import { getApiBaseUrl } from "../infrastructure/apiBaseUrl";
+import PronounceableArabicText from "./PronounceableArabicText";
 
 type Props = {
   card: FlashCardDto | null;
+  authToken: string;
   onClose: () => void;
 };
 
-export default function FlashcardView({ card, onClose }: Props) {
+export default function FlashcardView({ card, authToken, onClose }: Props) {
+  const apiBaseUrl = getApiBaseUrl();
+
   if (!card) return null;
 
   return (
@@ -19,7 +24,13 @@ export default function FlashcardView({ card, onClose }: Props) {
       />
       <View style={styles.card}>
         <Text style={styles.term}>{card.localLanguage}</Text>
-        <Text style={styles.term}>{card.foreignLanguage}</Text>
+        <PronounceableArabicText
+          apiBaseUrl={apiBaseUrl}
+          authToken={authToken}
+          text={card.foreignLanguage}
+          languageCode={card.foreignLanguageCode}
+          textStyle={styles.term}
+        />
         {card.synonyms ? <Text style={styles.meta}>{card.synonyms}</Text> : null}
         {card.annotation ? (
           <Text style={styles.meta}>{card.annotation}</Text>

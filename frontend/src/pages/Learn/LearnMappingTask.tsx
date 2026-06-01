@@ -7,14 +7,19 @@ import {
   UIManager,
   View
 } from "react-native";
+import PronounceableArabicText from "../../components/PronounceableArabicText";
 import type { LearningMappingItem } from "../../domain/LearningMappingItem";
+import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import Button from "../../components/Button";
+import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import type { MappingAnswerResult } from "./types";
 import LearnCorrectionActions from "./LearnCorrectionActions";
-import { shuffle } from "./learnUtils";
+import { getLanguageCodeForLearningText, shuffle } from "./learnUtils";
 import styles from "./styles";
 
 type Props = {
+  authToken: string;
+  userSettings: UserSettingsDto | null;
   items: LearningMappingItem[];
   onAnswer: (isCorrect: boolean, mappingAnswers: MappingAnswerResult[]) => void;
   disabled: boolean;
@@ -24,6 +29,8 @@ type Props = {
 };
 
 export default function LearnMappingTask({
+  authToken,
+  userSettings,
   items,
   onAnswer,
   disabled,
@@ -31,6 +38,7 @@ export default function LearnMappingTask({
   onContinue,
   onCheat
 }: Props) {
+  const apiBaseUrl = getApiBaseUrl();
   const [selectedLeftKey, setSelectedLeftKey] = React.useState<string | null>(
     null
   );
@@ -201,16 +209,34 @@ export default function LearnMappingTask({
           <Text style={styles.incorrectLabel}>Incorrect</Text>
           <View style={styles.mappingCorrectList}>
             {items.map((item, index) => (
-              <View key={`correct-${index}`} style={styles.mappingCorrectRow}>
-                <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
-                  <Text style={styles.mappingText}>{item.left.value}</Text>
-                </View>
+                <View key={`correct-${index}`} style={styles.mappingCorrectRow}>
+                  <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
+                    <PronounceableArabicText
+                      apiBaseUrl={apiBaseUrl}
+                      authToken={authToken}
+                      text={item.left.value}
+                      languageCode={getLanguageCodeForLearningText(
+                        item.left.language,
+                        userSettings
+                      )}
+                      textStyle={styles.mappingText}
+                    />
+                  </View>
                 <View style={styles.mappingCorrectLine} />
-                <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
-                  <Text style={styles.mappingText}>{item.right.value}</Text>
+                  <View style={[styles.mappingItem, styles.mappingCorrectItem]}>
+                    <PronounceableArabicText
+                      apiBaseUrl={apiBaseUrl}
+                      authToken={authToken}
+                      text={item.right.value}
+                      languageCode={getLanguageCodeForLearningText(
+                        item.right.language,
+                        userSettings
+                      )}
+                      textStyle={styles.mappingText}
+                    />
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
           </View>
           <LearnCorrectionActions onContinue={onContinue} onCheat={onCheat} />
         </View>
@@ -223,17 +249,29 @@ export default function LearnMappingTask({
                 {unpairedLeftItems.map((item) => {
                   const selected = item.key === selectedLeftKey;
                   return (
-                    <Pressable
-                      key={item.key}
-                      onPress={() => handleLeftPress(item.key)}
-                      style={[
-                        styles.mappingItem,
-                        selected ? styles.mappingItemSelected : null
-                      ]}
-                      disabled={disabled}
-                    >
-                      <Text style={styles.mappingText}>{item.text.value}</Text>
-                    </Pressable>
+                    <View key={item.key} style={styles.mappingInteractiveRow}>
+                      <Pressable
+                        onPress={() => handleLeftPress(item.key)}
+                        style={[
+                          styles.mappingItem,
+                          styles.mappingItemSelectable,
+                          selected ? styles.mappingItemSelected : null
+                        ]}
+                        disabled={disabled}
+                      >
+                        <Text style={styles.mappingText}>{item.text.value}</Text>
+                      </Pressable>
+                      <PronounceableArabicText
+                        apiBaseUrl={apiBaseUrl}
+                        authToken={authToken}
+                        text={item.text.value}
+                        languageCode={getLanguageCodeForLearningText(
+                          item.text.language,
+                          userSettings
+                        )}
+                        textStyle={styles.hiddenArabicText}
+                      />
+                    </View>
                   );
                 })}
               </View>
@@ -241,17 +279,29 @@ export default function LearnMappingTask({
                 {unpairedRightItems.map((item) => {
                   const selected = item.key === selectedRightKey;
                   return (
-                    <Pressable
-                      key={item.key}
-                      onPress={() => handleRightPress(item.key)}
-                      style={[
-                        styles.mappingItem,
-                        selected ? styles.mappingItemSelected : null
-                      ]}
-                      disabled={disabled}
-                    >
-                      <Text style={styles.mappingText}>{item.text.value}</Text>
-                    </Pressable>
+                    <View key={item.key} style={styles.mappingInteractiveRow}>
+                      <Pressable
+                        onPress={() => handleRightPress(item.key)}
+                        style={[
+                          styles.mappingItem,
+                          styles.mappingItemSelectable,
+                          selected ? styles.mappingItemSelected : null
+                        ]}
+                        disabled={disabled}
+                      >
+                        <Text style={styles.mappingText}>{item.text.value}</Text>
+                      </Pressable>
+                      <PronounceableArabicText
+                        apiBaseUrl={apiBaseUrl}
+                        authToken={authToken}
+                        text={item.text.value}
+                        languageCode={getLanguageCodeForLearningText(
+                          item.text.language,
+                          userSettings
+                        )}
+                        textStyle={styles.hiddenArabicText}
+                      />
+                    </View>
                   );
                 })}
               </View>
@@ -273,8 +323,20 @@ export default function LearnMappingTask({
                       key={`${pair.leftKey}-${pair.rightKey}`}
                       style={styles.mappingPairedRow}
                     >
-                      <View style={[styles.mappingItem, styles.mappingPairedItem]}>
-                        <Text style={styles.mappingText}>{left.value}</Text>
+                      <View style={styles.mappingPairedCell}>
+                        <View style={[styles.mappingItem, styles.mappingPairedItem]}>
+                          <Text style={styles.mappingText}>{left.value}</Text>
+                        </View>
+                        <PronounceableArabicText
+                          apiBaseUrl={apiBaseUrl}
+                          authToken={authToken}
+                          text={left.value}
+                          languageCode={getLanguageCodeForLearningText(
+                            left.language,
+                            userSettings
+                          )}
+                          textStyle={styles.hiddenArabicText}
+                        />
                       </View>
                       <Pressable
                         onPress={() => unpair(pair.leftKey, pair.rightKey)}
@@ -283,8 +345,20 @@ export default function LearnMappingTask({
                       >
                         <Text style={styles.mappingUnpairText}>Unpair</Text>
                       </Pressable>
-                      <View style={[styles.mappingItem, styles.mappingPairedItem]}>
-                        <Text style={styles.mappingText}>{right.value}</Text>
+                      <View style={styles.mappingPairedCell}>
+                        <View style={[styles.mappingItem, styles.mappingPairedItem]}>
+                          <Text style={styles.mappingText}>{right.value}</Text>
+                        </View>
+                        <PronounceableArabicText
+                          apiBaseUrl={apiBaseUrl}
+                          authToken={authToken}
+                          text={right.value}
+                          languageCode={getLanguageCodeForLearningText(
+                            right.language,
+                            userSettings
+                          )}
+                          textStyle={styles.hiddenArabicText}
+                        />
                       </View>
                     </View>
                   );

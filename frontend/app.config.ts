@@ -13,6 +13,15 @@ const config: ExpoConfig = {
   orientation: "portrait",
   platforms: ["android", "web"],
   scheme: "vocabuai",
+  plugins: [
+    [
+      "expo-audio",
+      {
+        microphonePermission: false,
+        recordAudioAndroid: false
+      }
+    ]
+  ],
   web: {
     bundler: "metro",
     output: "single"

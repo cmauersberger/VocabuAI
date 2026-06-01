@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import OptionMenuButton from "../../components/OptionMenuButton";
+import PronounceableArabicText from "../../components/PronounceableArabicText";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
 import { LanguageLevel } from "../../domain/LanguageLevel";
 import { GrammarConceptId } from "../../domain/GrammarConceptId";
@@ -858,7 +859,16 @@ export default function LearnPage({
         ) : null}
         {generatedText ? (
           <View style={styles.generatedTextCard}>
-            <Text style={styles.generatedText}>{generatedText}</Text>
+            <PronounceableArabicText
+              apiBaseUrl={apiBaseUrl}
+              authToken={authToken}
+              text={generatedText}
+              languageCode={
+                userSettings?.defaultForeignFlashCardLanguage ?? ""
+              }
+              variant="tokenized"
+              textStyle={styles.generatedText}
+            />
           </View>
         ) : null}
         {openAiUsage ? (
@@ -993,6 +1003,8 @@ export default function LearnPage({
         <LearnTaskRenderer
           key={currentTask.guid}
           task={currentTask}
+          authToken={authToken}
+          userSettings={userSettings}
           onAnswer={recordAnswer}
           disabled={isAdvancing}
           showCorrectAnswer={correctionGuid === currentTask.guid}

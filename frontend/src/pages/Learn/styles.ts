@@ -78,7 +78,13 @@ const styles = StyleSheet.create({
   optionList: {
     gap: 10
   },
+  optionRowContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
   optionRow: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -131,8 +137,16 @@ const styles = StyleSheet.create({
     borderColor: "rgba(148, 163, 184, 0.25)",
     gap: 4
   },
+  mappingItemSelectable: {
+    flex: 1
+  },
   mappingItemSelected: {
     borderColor: "#F59E0B"
+  },
+  mappingInteractiveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
   },
   mappingText: {
     color: "#FFFFFF",
@@ -158,6 +172,10 @@ const styles = StyleSheet.create({
   mappingPairedItem: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.85)"
+  },
+  mappingPairedCell: {
+    flex: 1,
+    gap: 8
   },
   mappingUnpairButton: {
     alignSelf: "center",
@@ -256,6 +274,11 @@ const styles = StyleSheet.create({
   },
   generationError: {
     color: "#F97316"
+  },
+  hiddenArabicText: {
+    fontSize: 0,
+    lineHeight: 0,
+    color: "transparent"
   },
   centeredButton: {
     alignSelf: "center"
