@@ -5,11 +5,15 @@ declare const process: {
 };
 
 const apiBaseUrl = process.env?.EXPO_PUBLIC_API_BASE ?? "http://localhost:5080";
+const appVersion = process.env?.APP_VERSION ?? "0.2.1";
+const appCommitSha = process.env?.APP_COMMIT_SHA ?? "local";
+const appBuildTimeUtc = process.env?.APP_BUILD_TIME_UTC ?? "";
+const appBranch = process.env?.APP_BRANCH ?? "local";
 
 const config: ExpoConfig = {
   name: "VocabuAI",
   slug: "vocabuai",
-  version: "0.1.0",
+  version: appVersion,
   orientation: "portrait",
   platforms: ["android", "web"],
   scheme: "vocabuai",
@@ -30,7 +34,11 @@ const config: ExpoConfig = {
     package: "com.example.vocabuai"
   },
   extra: {
-    apiBaseUrl
+    apiBaseUrl,
+    appVersion,
+    appCommitSha,
+    appBuildTimeUtc,
+    appBranch
   }
 };
 

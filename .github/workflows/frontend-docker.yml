@@ -7,6 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  APP_VERSION: 0.2.1
 
 jobs:
   deploy:
@@ -16,6 +17,11 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set build metadata
+        run: |
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "BUILD_TIME_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
 
       - name: Set image name (lowercase)
         run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}-frontend" >> "$GITHUB_ENV" # frontend image suffix
@@ -32,6 +38,12 @@ jobs:
           file: frontend/Dockerfile # explicit frontend Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            EXPO_PUBLIC_API_BASE=https://vocabuai.fryy.de/api
+            APP_VERSION=${{ env.APP_VERSION }}
+            APP_COMMIT_SHA=${{ env.SHORT_SHA }}
+            APP_BUILD_TIME_UTC=${{ env.BUILD_TIME_UTC }}
+            APP_BRANCH=${{ github.ref_name }}
 
       - name: Deploy
         run: |

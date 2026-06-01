@@ -12,10 +12,12 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import Button from "../../components/Button";
+import type { AppVersionDto } from "../../domain/dtos/AppVersionDto";
 import type { FlashCardImportResultDto } from "../../domain/dtos/flashcards/FlashCardImportResultDto";
 import type { OpenAiSettingsRequestDto } from "../../domain/dtos/OpenAiSettingsRequestDto";
 import type { UserSettingsDto } from "../../domain/dtos/UserSettingsDto";
 import { getApiBaseUrl } from "../../infrastructure/apiBaseUrl";
+import { getFrontendBuildInfo } from "../../infrastructure/appBuildInfo";
 import { LANGUAGE_OPTIONS } from "./languageOptions";
 
 const isAuthFailureResponse = (response: Response) =>
@@ -41,12 +43,19 @@ export default function SettingsPage({
   onLogout
 }: Props) {
   const apiBaseUrl = getApiBaseUrl();
+  const frontendBuildInfo = React.useMemo(() => getFrontendBuildInfo(), []);
   const handleAuthFailure = React.useCallback(() => {
     if (!onAuthFailure) return false;
     onAuthFailure();
     return true;
   }, [onAuthFailure]);
   const [settings, setSettings] = React.useState<UserSettingsDto | null>(null);
+  const [backendBuildInfo, setBackendBuildInfo] = React.useState<AppVersionDto | null>(
+    null
+  );
+  const [backendBuildStatus, setBackendBuildStatus] = React.useState<string | null>(
+    null
+  );
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
@@ -67,6 +76,12 @@ export default function SettingsPage({
 
   const formatDate = (value?: number) =>
     value ? new Date(value).toLocaleString() : "Unknown";
+
+  const formatBuildDate = (value?: string | null) => {
+    if (!value) return "Unknown";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+  };
 
   const timeRemaining = () => {
     if (!expiresAt) return null;
@@ -107,6 +122,33 @@ export default function SettingsPage({
   React.useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  const loadBackendBuildInfo = React.useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/app/version`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      if (isAuthFailureResponse(response)) {
+        if (handleAuthFailure()) return;
+      }
+      if (!response.ok) {
+        setBackendBuildStatus("Unable to load backend build info.");
+        return;
+      }
+
+      const payload = (await response.json()) as AppVersionDto;
+      setBackendBuildInfo(payload);
+      setBackendBuildStatus(null);
+    } catch {
+      if (handleAuthFailure()) return;
+      setBackendBuildStatus("Unable to reach the API for backend build info.");
+    }
+  }, [apiBaseUrl, authToken, handleAuthFailure]);
+
+  React.useEffect(() => {
+    void loadBackendBuildInfo();
+  }, [loadBackendBuildInfo]);
 
   React.useEffect(() => {
     if (!settings) return;
@@ -462,6 +504,51 @@ export default function SettingsPage({
         <Button label="Log Out" onClick={onLogout} />
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Deployment</Text>
+        <Text style={styles.explanation}>
+          Compare frontend and backend build metadata to verify what is deployed.
+        </Text>
+        <View style={styles.buildInfoBlock}>
+          <Text style={styles.label}>Frontend</Text>
+          <Text style={styles.text}>
+            Version: {frontendBuildInfo.version}
+          </Text>
+          <Text style={styles.muted}>
+            Branch: {frontendBuildInfo.branch ?? "Unknown"}
+          </Text>
+          <Text style={styles.muted}>
+            Commit: {frontendBuildInfo.commitSha ?? "Unknown"}
+          </Text>
+          <Text style={styles.muted}>
+            Built: {formatBuildDate(frontendBuildInfo.buildTimeUtc)}
+          </Text>
+        </View>
+        <View style={styles.buildInfoBlock}>
+          <Text style={styles.label}>Backend</Text>
+          {backendBuildInfo ? (
+            <>
+              <Text style={styles.text}>
+                Version: {backendBuildInfo.version}
+              </Text>
+              <Text style={styles.muted}>
+                Branch: {backendBuildInfo.branch ?? "Unknown"}
+              </Text>
+              <Text style={styles.muted}>
+                Commit: {backendBuildInfo.commitSha ?? "Unknown"}
+              </Text>
+              <Text style={styles.muted}>
+                Built: {formatBuildDate(backendBuildInfo.buildTimeUtc)}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.muted}>
+              {backendBuildStatus ?? "Loading backend build info..."}
+            </Text>
+          )}
+        </View>
+      </View>
+
       <Text style={styles.heading}>User Settings</Text>
 
       <View style={styles.card}>
@@ -740,6 +827,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "rgba(148, 163, 184, 0.08)",
     gap: 10
+  },
+  buildInfoBlock: {
+    gap: 4
   },
   settingsCard: {
     position: "relative"

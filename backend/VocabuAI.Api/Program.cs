@@ -24,6 +24,7 @@ using VocabuAI.Infrastructure.Pronunciation;
 using VocabuAI.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
+var appBuildInfo = AppBuildInfo.Create(builder.Environment.ApplicationName);
 
 if (builder.Environment.IsDevelopment())
 {
@@ -94,6 +95,7 @@ builder.Services.AddScoped<IAiTextGenerationService, AiTextGenerationService>();
 builder.Services.AddScoped<OllamaAiTextClient>();
 builder.Services.AddScoped<IPasswordHasher<UserDb>, PasswordHasher<UserDb>>();
 builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
+builder.Services.AddSingleton(appBuildInfo);
 
 builder.Services.AddHttpClient<ILocalLlmClient, LocalLlmClient>((sp, client) =>
 {
@@ -214,7 +216,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 var api = app.MapGroup("/api");
-api.MapHealthEndpoints(app.Environment.ApplicationName);
+api.MapHealthEndpoints($"{appBuildInfo.Version} ({appBuildInfo.CommitSha ?? "unknown"})");
+api.MapAppEndpoints();
 api.MapAuthEndpoints();
 api.MapUserEndpoints();
 api.MapFlashCardEndpoints();
