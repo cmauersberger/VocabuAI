@@ -5,7 +5,7 @@ declare const process: {
 };
 
 const apiBaseUrl = process.env?.EXPO_PUBLIC_API_BASE ?? "http://localhost:5080";
-const appVersion = process.env?.APP_VERSION ?? "0.2.1";
+const appVersion = process.env?.APP_VERSION ?? "0.2.2";
 const appCommitSha = process.env?.APP_COMMIT_SHA ?? "local";
 const appBuildTimeUtc = process.env?.APP_BUILD_TIME_UTC ?? "";
 const appBranch = process.env?.APP_BRANCH ?? "local";

@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  APP_VERSION: 0.2.1
+  APP_VERSION: 0.2.2
 
 jobs:
   deploy:
@@ -44,10 +44,3 @@ jobs:
             APP_COMMIT_SHA=${{ env.SHORT_SHA }}
             APP_BUILD_TIME_UTC=${{ env.BUILD_TIME_UTC }}
             APP_BRANCH=${{ github.ref_name }}
-
-      - name: Deploy
-        run: |
-          curl -X POST "${{ vars.DEPLOY_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"token\":\"${{ secrets.DEPLOY_TOKEN }}\"}" \
-            --fail-with-body

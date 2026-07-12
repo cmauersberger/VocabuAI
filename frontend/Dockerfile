@@ -1,6 +1,6 @@
 # build stage
 ARG EXPO_PUBLIC_API_BASE=https://vocabuai.fryy.de/api
-ARG APP_VERSION=0.2.1
+ARG APP_VERSION=0.2.2
 ARG APP_COMMIT_SHA=local
 ARG APP_BUILD_TIME_UTC=
 ARG APP_BRANCH=local

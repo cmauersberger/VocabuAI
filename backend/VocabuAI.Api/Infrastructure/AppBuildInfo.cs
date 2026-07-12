@@ -16,7 +16,7 @@ public sealed record AppBuildInfo(
         var version = Environment.GetEnvironmentVariable("APP_VERSION")
             ?? assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
-            ?? "0.2.1";
+            ?? "0.2.2";
 
         var commitSha = Normalize(Environment.GetEnvironmentVariable("APP_COMMIT_SHA"));
         var branch = Normalize(Environment.GetEnvironmentVariable("APP_BRANCH"));

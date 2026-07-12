@@ -9,7 +9,7 @@ export function getFrontendBuildInfo(): AppVersionDto {
     version:
       typeof extra.appVersion === "string" && extra.appVersion.trim()
         ? extra.appVersion.trim()
-        : "0.2.1",
+        : "0.2.2",
     commitSha:
       typeof extra.appCommitSha === "string" && extra.appCommitSha.trim()
         ? extra.appCommitSha.trim()
