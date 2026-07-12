@@ -14,11 +14,11 @@ public sealed class SecretProtector : ISecretProtector
 
     public SecretProtector(IConfiguration configuration)
     {
-        var raw = configuration["APP_SECRET_ENCRYPTION_KEY"]
+        var rawEncryptionKey = configuration["APP_SECRET_ENCRYPTION_KEY"]
             ?? Environment.GetEnvironmentVariable("APP_SECRET_ENCRYPTION_KEY");
-        if (!string.IsNullOrWhiteSpace(raw))
+        if (!string.IsNullOrWhiteSpace(rawEncryptionKey))
         {
-            _key = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+            _key = SHA256.HashData(Encoding.UTF8.GetBytes(rawEncryptionKey));
         }
     }
 
@@ -39,16 +39,16 @@ public sealed class SecretProtector : ISecretProtector
         var nonce = RandomNumberGenerator.GetBytes(NonceSize);
         var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
         var cipherBytes = new byte[plaintextBytes.Length];
-        var tag = new byte[TagSize];
+        var authenticationTag = new byte[TagSize];
 
         using (var aes = new AesGcm(_key!, TagSize))
         {
-            aes.Encrypt(nonce, plaintextBytes, cipherBytes, tag);
+            aes.Encrypt(nonce, plaintextBytes, cipherBytes, authenticationTag);
         }
 
         var nonceBase64 = Convert.ToBase64String(nonce);
         var cipherBase64 = Convert.ToBase64String(cipherBytes);
-        var tagBase64 = Convert.ToBase64String(tag);
+        var tagBase64 = Convert.ToBase64String(authenticationTag);
 
         return $"{Prefix}.{nonceBase64}.{cipherBase64}.{tagBase64}";
     }
@@ -73,12 +73,12 @@ public sealed class SecretProtector : ISecretProtector
 
         var nonce = Convert.FromBase64String(parts[1]);
         var cipherBytes = Convert.FromBase64String(parts[2]);
-        var tag = Convert.FromBase64String(parts[3]);
+        var authenticationTag = Convert.FromBase64String(parts[3]);
         var plaintextBytes = new byte[cipherBytes.Length];
 
         using (var aes = new AesGcm(_key!, TagSize))
         {
-            aes.Decrypt(nonce, cipherBytes, tag, plaintextBytes);
+            aes.Decrypt(nonce, cipherBytes, authenticationTag, plaintextBytes);
         }
 
         return Encoding.UTF8.GetString(plaintextBytes);

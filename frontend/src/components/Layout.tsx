@@ -27,7 +27,7 @@ export default function Layout({
   children,
   showBottomNav = true
 }: Props) {
-  const insets = useSafeAreaInsets();
+  const safeAreaInsets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -40,7 +40,7 @@ export default function Layout({
 
         {showBottomNav ? (
           <View
-            style={[styles.bottomNav, { paddingBottom: insets.bottom }]}
+            style={[styles.bottomNav, { paddingBottom: safeAreaInsets.bottom }]}
             pointerEvents="auto"
           >
             {tabs.map((tab) => {
